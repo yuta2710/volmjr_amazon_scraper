@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "allowJs": true,
+    "baseUrl": "src",
+    "outDir": "dist",
+    "sourceMap": true,
+    "noImplicitAny": true,
+    "paths": {
+      "@/modules/*": ["modules/*"],
+      "@/utils/*": ["utils/*"],
+      "@/middleware/*": ["middleware/*"],
+      "@/core/*": ["core/*"],
+      "@/data/*": ["data/*"],
+      "@/shared/*": ["shared/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  // "files": ["src/seeder.ts"]
+}
