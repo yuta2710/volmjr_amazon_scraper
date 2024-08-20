@@ -1,50 +1,83 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.scrapeAmazonProduct = scrapeAmazonProduct;
-const axios_https_proxy_fix_1 = __importDefault(require("axios-https-proxy-fix"));
-const scraper_1 = require("../../../cores/scraper");
-const cheerio = __importStar(require("cheerio"));
-const USERNAME = String(process.env.BRIGHT_DATA_USERNAME);
-const PASSWORD = String(process.env.BRIGHT_DATA_PASSWORD);
-const AUTH = `${USERNAME}:${PASSWORD}`;
-const SBR_WS_ENDPOINT = `wss://${AUTH}@brd.superproxy.io:9222`;
+const puppeteer_1 = __importDefault(require("puppeteer"));
+const child_process_1 = require("child_process");
+const path_1 = __importDefault(require("path"));
+var TWOCAPCHA_API_KEY = String(process.env.TWOCAPCHA_API_KEY);
+var POLLING_INTERVAL = 20;
 async function scrapeAmazonProduct(url) {
     if (!url)
         return;
+    const browser = await puppeteer_1.default.launch({
+        headless: false,
+        defaultViewport: { width: 800, height: 600 },
+    });
+    const page = await browser.newPage();
+    await page.goto(url);
     try {
-        const response = await axios_https_proxy_fix_1.default.get(url, scraper_1.BrightDataConfigurations);
-        // console.log("Data is")
-        const $ = cheerio.load(response.data);
-        const title = $("#productTitle").text().trim();
-        const location = $("#glow-ingress-line2").text().trim();
-        console.log({ title, location });
-        // console.log(response.data)
+        // const solver = new TwoCaptcha.Solver(TWOCAPCHA_API_KEY)
+        const captchaPhotoRemoteUrl = await page.$eval("div.a-row.a-text-center > img", (node) => node.getAttribute("src"));
+        console.log("\nLink " + captchaPhotoRemoteUrl);
+        let captureValue;
+        if (captchaPhotoRemoteUrl) {
+            const executablePath = path_1.default.join(__dirname, "../../../../src/scripts/normal+captcha.py");
+            console.log("Executable path: " + executablePath);
+            const command = `python ${executablePath} ${captchaPhotoRemoteUrl}`;
+            (0, child_process_1.exec)(command, async (error, stdout, stderr) => {
+                if (error) {
+                    console.error(`Error: ${error.message}`);
+                    return;
+                }
+                if (stderr) {
+                    console.error(`stderr: ${stderr}`);
+                    return;
+                }
+                captureValue = stdout.trim();
+                console.log(`Result from python file`);
+                console.log(captureValue);
+                await page.waitForSelector("#captchacharacters");
+                await page.type("#captchacharacters", captureValue);
+                const button = await page.$(".a-button-text");
+                button.click();
+                setTimeout(async () => {
+                    const signInButton = await page.$("a[data-nav-ref='nav_ya_signin']");
+                    if (signInButton) {
+                        await signInButton.click();
+                        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+                        await page.waitForSelector("#ap_email");
+                        await page.type("#ap_email", "digivantrix0802.ent@gmail.com");
+                        const continueButton = await page.$("#continue");
+                        await continueButton.click();
+                        await page.waitForSelector("#ap_password");
+                        await page.type("#ap_password", "phucloi2710");
+                        const signInSubmitButton = await page.$("#signInSubmit");
+                        await signInSubmitButton.click();
+                        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+                        const title = (await page.$("#productTitle"));
+                        console.log("Fucking title = ", title);
+                    }
+                    else {
+                        console.error("Sign-in button not found");
+                    }
+                }, 2000); // 1000 milliseconds = 1 second
+                // HHHNLYResolved HHHNLY
+            });
+        }
+        // const result = await solver.imageCaptcha({
+        //   body: captchaPhotoRemoteUrl,
+        //   numeric: 4,
+        //   max_len: 5,
+        //   min_len: 5
+        // })
+        // console.log("\nResult = ", result)
+    }
+    catch (error) { }
+    // await browser.close();
+    try {
     }
     catch (err) {
         console.log(err);

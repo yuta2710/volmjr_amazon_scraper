@@ -19,7 +19,7 @@ export default class BaseProductService {
   ): Promise<{message: "Created product on supabase successfully"} | Error> => {
     // return new Promise();
     const { url } = req.body as AmazonScrapingProductRequest
-
+      
     scrapeAmazonProduct(url)
     return null 
   }

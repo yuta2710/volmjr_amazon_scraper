@@ -1,0 +1,2 @@
+amazoncaptcha==0.5.11
+urllib3==2.0.4
