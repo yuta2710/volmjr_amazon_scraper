@@ -1,21 +1,32 @@
 export enum ProductFieldExtractorFromUrl {
   ASIN,
-  NAME 
+  NAME,
 }
 
-export const extractAsinFromUrl = (url: string, field: ProductFieldExtractorFromUrl) => {
+export const processNewlineSeparatedText = (rawText: string) => {
+  return rawText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .join(" ");
+};
+
+export const extractAsinFromUrl = (
+  url: string,
+  field: ProductFieldExtractorFromUrl,
+) => {
   const regexOfAsin = /\/dp\/([A-Z0-9]+)/;
-  const regexOfName = /amazon\.com\/([^\/]+)\/dp\// 
+  const regexOfName = /amazon\.com\/([^\/]+)\/dp\//;
   // Execute the regex on the URL
   let match;
-  if(field === ProductFieldExtractorFromUrl.ASIN) {
+  if (field === ProductFieldExtractorFromUrl.ASIN) {
     match = url.match(regexOfAsin);
-  }else {
+  } else {
     match = url.match(regexOfName);
   }
 
   if (match) {
-    return match[1]
+    return match[1];
   } else {
     console.log("No match found");
   }
