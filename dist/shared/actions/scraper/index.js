@@ -10,8 +10,6 @@ const path_1 = __importDefault(require("path"));
 const assemblyai_1 = require("assemblyai");
 const pipelines_1 = require("../pipelines");
 // import { PuppeteerCrawler } from 'crawlee';
-var TWOCAPCHA_API_KEY = String(process.env.TWOCAPCHA_API_KEY);
-var POLLING_INTERVAL = 20;
 async function scrapeAmazonProduct(url) {
     if (!url)
         return;
@@ -112,29 +110,53 @@ async function scrapeAmazonProduct(url) {
             await reviewButton.click();
             await page.waitForNavigation({ waitUntil: "domcontentloaded" });
             /** Change the sort by type */
-            setTimeout(async () => {
-                const sortByButton = await page.$(".a-button.a-button-dropdown.cr-sort-dropdown");
-                await sortByButton.click();
-                const mostRecentButton = await page.$("a#sort-order-dropdown_1");
-                await mostRecentButton.click();
-                await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-            }, 2000);
+            // setTimeout(async () => {
+            //   const sortByButton = await page.$(
+            //     ".a-button.a-button-dropdown.cr-sort-dropdown",
+            //   );
+            //   await sortByButton.click();
+            //   const mostRecentButton = await page.$("a#sort-order-dropdown_1");
+            //   await mostRecentButton.click(); // Click to change the client-side URL.
+            // }, 2000);
+            const comment_url = page.url() + "&sortBy=recent&pageNumber=1";
+            console.log("After navigate = ", comment_url);
+            await page.goto(comment_url);
+            // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+            // console.log(currentUrlInCommentPageComponents)
             /** Scrape the comments steps */
-            const listOfComments = await page.$$(".review.aok-relative");
-            console.log("Length of this list of comments = ", listOfComments.length);
-            for (let i = 0; i < listOfComments.length; i++) {
-                const title = await listOfComments[i].$eval(".a-size-base.a-link-normal.review-title.a-color-base.review-title-content.a-text-bold", (el) => el.textContent);
-                const description = await listOfComments[i].$eval(".a-size-base.review-text.review-text-content", (el) => el.textContent);
-                const pipelineTitleAndRating = title
-                    .split("\n")
-                    .map((line) => line.trim())
-                    .filter((line) => line.length > 0);
-                const pipelineDescription = (0, pipelines_1.processNewlineSeparatedText)(description);
-                console.log({
-                    rating: pipelineTitleAndRating[0].trim(),
-                    title: pipelineTitleAndRating[1].trim(),
-                    description: pipelineDescription,
-                });
+            // const listOfComments = await page.$$(".review.aok-relative");
+            try {
+                const commentContainer = await page.$(".a-section.a-spacing-none.reviews-content.a-size-base");
+                const listOfComments = await commentContainer.$$("div[data-hook='review']");
+                console.log("Length of this list of comments = ", listOfComments.length);
+                for (let i = 0; i < listOfComments.length; i++) {
+                    const title = await listOfComments[i].$eval(".a-size-base.a-link-normal.review-title.a-color-base.review-title-content.a-text-bold", (el) => el.textContent);
+                    const description = await listOfComments[i].$eval(".a-size-base.review-text.review-text-content", (el) => el.textContent);
+                    const pipelineTitleAndRating = title
+                        .split("\n")
+                        .map((line) => line.trim())
+                        .filter((line) => line.length > 0);
+                    const pipelineDescription = (0, pipelines_1.processNewlineSeparatedText)(description);
+                    const verifiedPurchase = (await listOfComments[i].$eval(".a-size-mini.a-color-state.a-text-bold", (el) => el.textContent)) !== "";
+                    let helpfulCount = null;
+                    try {
+                        helpfulCount = await listOfComments[i].$eval("span[data-hook='helpful-vote-statement']", (el) => el.textContent);
+                        console.log("Helpful count = ", helpfulCount);
+                    }
+                    catch (error) {
+                        helpfulCount = "Unknown";
+                    }
+                    console.log({
+                        rating: pipelineTitleAndRating[0].trim(),
+                        title: pipelineTitleAndRating[1].trim(),
+                        description: pipelineDescription,
+                        verifiedPurchase,
+                        helpfulCount,
+                    });
+                }
+            }
+            catch (error) {
+                console.log(error);
             }
             // reviewerType=all_reviews&filterByStar=all_stars&pageNumber=1&sortBy=recent
             // https://www.amazon.com/Tanisa-Organic-Spring-Paper-Wrapper/product-reviews/B07KXPKRNK/ref=cm_cr_arp_d_viewpnt_lft?ie=UTF8&reviewerType=all_reviews&filterByStar=all_stars&pageNumber=1

@@ -10,13 +10,11 @@ import { stderr, stdout } from "process";
 import { AssemblyAI } from "assemblyai";
 import {
   extractAsinFromUrl,
+  getUrlComponents,
   processNewlineSeparatedText,
   ProductFieldExtractorFromUrl,
 } from "../pipelines";
 // import { PuppeteerCrawler } from 'crawlee';
-
-var TWOCAPCHA_API_KEY = String(process.env.TWOCAPCHA_API_KEY);
-var POLLING_INTERVAL = 20;
 
 export async function scrapeAmazonProduct(url: string) {
   if (!url) return;
@@ -176,44 +174,76 @@ export async function scrapeAmazonProduct(url: string) {
       await page.waitForNavigation({ waitUntil: "domcontentloaded" });
 
       /** Change the sort by type */
-      setTimeout(async () => {
-        const sortByButton = await page.$(
-          ".a-button.a-button-dropdown.cr-sort-dropdown",
-        );
-        await sortByButton.click();
+      // setTimeout(async () => {
+      //   const sortByButton = await page.$(
+      //     ".a-button.a-button-dropdown.cr-sort-dropdown",
+      //   );
+      //   await sortByButton.click();
 
-        const mostRecentButton = await page.$("a#sort-order-dropdown_1");
-        await mostRecentButton.click();
+      //   const mostRecentButton = await page.$("a#sort-order-dropdown_1");
+      //   await mostRecentButton.click(); // Click to change the client-side URL.
+      // }, 2000);
+      const comment_url = page.url() + "&sortBy=recent&pageNumber=1";
+      console.log("After navigate = ", comment_url);
+      await page.goto(comment_url);
 
-        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-      }, 2000);
-
+      // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+      // console.log(currentUrlInCommentPageComponents)
       /** Scrape the comments steps */
-      const listOfComments = await page.$$(".review.aok-relative");
-      console.log("Length of this list of comments = ", listOfComments.length);
-
-      for (let i = 0; i < listOfComments.length; i++) {
-        const title = await listOfComments[i].$eval(
-          ".a-size-base.a-link-normal.review-title.a-color-base.review-title-content.a-text-bold",
-          (el) => el.textContent,
+      // const listOfComments = await page.$$(".review.aok-relative");
+      try {
+        const commentContainer = await page.$(
+          ".a-section.a-spacing-none.reviews-content.a-size-base",
         );
-        const description = await listOfComments[i].$eval(
-          ".a-size-base.review-text.review-text-content",
-          (el) => el.textContent,
+        const listOfComments = await commentContainer.$$(
+          "div[data-hook='review']",
         );
-        const pipelineTitleAndRating = (title as string)
-          .split("\n")
-          .map((line) => line.trim())
-          .filter((line) => line.length > 0);
-        const pipelineDescription = processNewlineSeparatedText(
-          description as string,
+        console.log(
+          "Length of this list of comments = ",
+          listOfComments.length,
         );
 
-        console.log({
-          rating: pipelineTitleAndRating[0].trim(),
-          title: pipelineTitleAndRating[1].trim(),
-          description: pipelineDescription,
-        });
+        for (let i = 0; i < listOfComments.length; i++) {
+          const title = await listOfComments[i].$eval(
+            ".a-size-base.a-link-normal.review-title.a-color-base.review-title-content.a-text-bold",
+            (el) => el.textContent,
+          );
+          const description = await listOfComments[i].$eval(
+            ".a-size-base.review-text.review-text-content",
+            (el) => el.textContent,
+          );
+          const pipelineTitleAndRating = (title as string)
+            .split("\n")
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0);
+          const pipelineDescription = processNewlineSeparatedText(
+            description as string,
+          );
+          const verifiedPurchase =
+            (await listOfComments[i].$eval(
+              ".a-size-mini.a-color-state.a-text-bold",
+              (el) => el.textContent,
+            )) !== "";
+          let helpfulCount = null;
+          try {
+            helpfulCount = await listOfComments[i].$eval(
+              "span[data-hook='helpful-vote-statement']",
+              (el) => el.textContent,
+            );
+            console.log("Helpful count = ", helpfulCount);
+          } catch (error) {
+            helpfulCount = "Unknown";
+          }
+          console.log({
+            rating: pipelineTitleAndRating[0].trim(),
+            title: pipelineTitleAndRating[1].trim(),
+            description: pipelineDescription,
+            verifiedPurchase,
+            helpfulCount,
+          });
+        }
+      } catch (error) {
+        console.log(error)
       }
       // reviewerType=all_reviews&filterByStar=all_stars&pageNumber=1&sortBy=recent
 
