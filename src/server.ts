@@ -1,6 +1,6 @@
 import App from "./app";
 import "dotenv/config";
-import AmazonBaseProductController from "./modules/amazon/products/product.controller";
+import AmazonBaseProductController from "./modules/products/product.controller";
 
 const app = new App([
   new AmazonBaseProductController()

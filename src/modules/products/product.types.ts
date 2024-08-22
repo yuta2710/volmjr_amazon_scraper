@@ -1,5 +1,3 @@
-import { User } from "@/modules/user/user.types";
-
 export type PriceHistoryItem = {
   price: number;
 };
