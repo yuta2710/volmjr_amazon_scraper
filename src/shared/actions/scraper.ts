@@ -1,5 +1,5 @@
 import axios from "axios";
-import { BrightDataConfigurations as config } from "../../../cores/scraper";
+import { BrightDataConfigurations as config } from "../../cores/scraper";
 import * as cheerio from "cheerio";
 import https from "https";
 import puppeteer from "puppeteer";
@@ -14,7 +14,7 @@ import {
   getUrlComponents,
   processNewlineSeparatedText,
   ProductFieldExtractorFromUrl,
-} from "../pipelines";
+} from "./pipeline";
 // import { PuppeteerCrawler } from 'crawlee';
 
 export async function scrapeAmazonProduct(url: string) {

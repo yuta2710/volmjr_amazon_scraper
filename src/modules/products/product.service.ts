@@ -3,13 +3,16 @@ import { NextFunction, Request, Response } from "express";
 
 import { createClient } from "@supabase/supabase-js";
 import { Database } from "../../shared/types/database.types";
-import { AmazonScrapingProductRequest } from "./product.request";
 import { scrapeAmazonProduct } from "../../shared/actions/scraper";
 
 const supabase = createClient<Database>(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY,
 );
+
+type AmazonScrapingProductRequest = {
+  url: string;
+}
 
 export default class BaseProductService {
   createProduct = async (
