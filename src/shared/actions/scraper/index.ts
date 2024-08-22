@@ -10,6 +10,7 @@ import { stderr, stdout } from "process";
 import { AssemblyAI } from "assemblyai";
 import {
   extractAsinFromUrl,
+  extractCommendLocationAndDate,
   getUrlComponents,
   processNewlineSeparatedText,
   ProductFieldExtractorFromUrl,
@@ -60,7 +61,7 @@ export async function scrapeAmazonProduct(url: string) {
         await page.type("#captchacharacters", captureValue);
         const button = await page.$(".a-button-text");
         button.click();
-
+        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
         // setTimeout(async () => {
         // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
 
@@ -195,28 +196,31 @@ export async function scrapeAmazonProduct(url: string) {
         const commentContainer = await page.$(
           ".a-section.a-spacing-none.reviews-content.a-size-base",
         );
-        const listOfComments = await commentContainer.$$(
-          "div[data-hook='review']",
-        );
+        const listOfComments = await commentContainer.$$("div[data-hook='review']");
         console.log(
           "Length of this list of comments = ",
           listOfComments.length,
         );
 
         for (let i = 0; i < listOfComments.length; i++) {
-          const title = await listOfComments[i].$eval(
+          const titleAndRatingRawSelector = await listOfComments[i].$eval(
             ".a-size-base.a-link-normal.review-title.a-color-base.review-title-content.a-text-bold",
             (el) => el.textContent,
           );
+          const currentUrlOfComment = await listOfComments[i].$eval(
+            ".a-size-base.a-link-normal.review-title.a-color-base.review-title-content.a-text-bold",
+            (el) => el.getAttribute("href"),
+          );
+
           const description = await listOfComments[i].$eval(
             ".a-size-base.review-text.review-text-content",
             (el) => el.textContent,
           );
-          const pipelineTitleAndRating = (title as string)
+          const filteredTitleAndRating = (titleAndRatingRawSelector as string)
             .split("\n")
             .map((line) => line.trim())
             .filter((line) => line.length > 0);
-          const pipelineDescription = processNewlineSeparatedText(
+          const filteredDescription = processNewlineSeparatedText(
             description as string,
           );
           const verifiedPurchase =
@@ -225,25 +229,37 @@ export async function scrapeAmazonProduct(url: string) {
               (el) => el.textContent,
             )) !== "";
           let helpfulCount = null;
+          // let locationAndDateRaw = null;
+          // let filteredLocationAndDate: string[] = [];
           try {
             helpfulCount = await listOfComments[i].$eval(
               "span[data-hook='helpful-vote-statement']",
               (el) => el.textContent,
             );
-            console.log("Helpful count = ", helpfulCount);
+            // await page.waitForSelector("span[data-hook='review-date']", {timeout: 10_000})
           } catch (error) {
             helpfulCount = "Unknown";
           }
+         let  locationAndDateRaw = await listOfComments[i].$eval(
+            "span[data-hook='review-date']",
+            (el) => el.textContent,
+          );
+          let filteredLocationAndDate =
+            extractCommendLocationAndDate(locationAndDateRaw);
           console.log({
-            rating: pipelineTitleAndRating[0].trim(),
-            title: pipelineTitleAndRating[1].trim(),
-            description: pipelineDescription,
+            rating: filteredTitleAndRating[0].trim(),
+            title: filteredTitleAndRating[1].trim(),
+            description: filteredDescription,
             verifiedPurchase,
             helpfulCount,
+            location: filteredLocationAndDate[0],
+            date: filteredLocationAndDate[1],
+            state: locationAndDateRaw,
+            url: currentUrlOfComment,
           });
         }
       } catch (error) {
-        console.log(error)
+        console.log(error);
       }
       // reviewerType=all_reviews&filterByStar=all_stars&pageNumber=1&sortBy=recent
 

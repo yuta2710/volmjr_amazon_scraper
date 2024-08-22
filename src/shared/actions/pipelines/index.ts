@@ -11,17 +11,16 @@ export const getUrlComponents = (url: string) => {
 
   // Split the URL into two parts: before and after "?ie=UTF8"
   if (splitIndex !== -1) {
-      const part1 = url.substring(0, splitIndex + 8); // Include "?ie=UTF8" in part1
-      const part2 = url.substring(splitIndex + 8); // Get the rest of the URL after "?ie=UTF8"
+    const part1 = url.substring(0, splitIndex + 8); // Include "?ie=UTF8" in part1
+    const part2 = url.substring(splitIndex + 8); // Get the rest of the URL after "?ie=UTF8"
 
-      const resultArray = [part1, part2];
-      console.log(resultArray); 
-      // Output: ["https://www.amazon.com/Tanisa-Organic-Spring-Paper-Wrapper/product-reviews/B07KXPKRNK/ref=cm_cr_arp_d_viewopt_srt?ie=UTF8", "&sortBy=recent&pageNumber=1"]
+    const resultArray = [part1, part2];
+    console.log(resultArray);
+    // Output: ["https://www.amazon.com/Tanisa-Organic-Spring-Paper-Wrapper/product-reviews/B07KXPKRNK/ref=cm_cr_arp_d_viewopt_srt?ie=UTF8", "&sortBy=recent&pageNumber=1"]
   } else {
-      console.log("No match found");
+    console.log("No match found");
   }
-
-}
+};
 
 export const processNewlineSeparatedText = (rawText: string) => {
   return rawText
@@ -47,6 +46,21 @@ export const extractAsinFromUrl = (
 
   if (match) {
     return match[1];
+  } else {
+    console.log("No match found");
+  }
+};
+
+export const extractCommendLocationAndDate = (rawData: string): string[] => {
+  const regex = /in the (.*?) on (.*)/;
+  const match = rawData.match(regex);
+
+  if (match) {
+    const country = match[1]; // "United States"
+    const date = match[2]; // "March 1, 2023"
+    const resultArray = [country, date];
+    
+    return resultArray// Output: ["United States", "March 1, 2023"]
   } else {
     console.log("No match found");
   }
