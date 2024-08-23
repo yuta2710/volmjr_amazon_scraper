@@ -17,15 +17,16 @@ export type BaseProduct = {
   retailer: string | "Not Show";
   bestSellerRanks: [];
   histogram: {
-    "1 star": string, 
-    "2 star": string, 
-    "3 star": string, 
-    "4 star": string, 
     "5 star": string
+    "4 star": string, 
+    "3 star": string, 
+    "2 star": string, 
+    "1 star": string, 
   }, 
   deliveryLocation: string;
   salesVolumeLastMonth: string | "Not Show";
   averageSentimentAnalysis: BaseSentiment;
+  businessTargetForCollecting: string;
   // users?: User[];
 };
 

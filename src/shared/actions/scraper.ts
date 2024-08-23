@@ -1,34 +1,25 @@
-import axios from "axios";
-import { BrightDataConfigurations as config } from "../../cores/scraper";
-import * as cheerio from "cheerio";
-import https from "https";
 import puppeteer from "puppeteer";
-import TwoCaptcha from "2captcha-ts";
 import { exec } from "child_process";
 import path from "path";
-import { stderr, stdout } from "process";
 import { AssemblyAI } from "assemblyai";
 import {
   extractAsinFromUrl,
   extractCommendLocationAndDate,
-  getUrlComponents,
   processNewlineSeparatedText,
   ProductFieldExtractorFromUrl,
 } from "./pipeline";
-// import { PuppeteerCrawler } from 'crawlee';
 
 export async function scrapeAmazonProduct(url: string) {
   if (!url) return;
   const browser = await puppeteer.launch({
-    defaultViewport: { width: 800, height: 600 },
     headless: false,
   });
 
   const page = await browser.newPage();
   await page.goto(url);
 
+  // Step solving normal captcha
   try {
-    // const solver = new TwoCaptcha.Solver(TWOCAPCHA_API_KEY)
     const captchaPhotoRemoteUrl = await page.$eval(
       "div.a-row.a-text-center > img",
       (node) => node.getAttribute("src"),
@@ -40,7 +31,7 @@ export async function scrapeAmazonProduct(url: string) {
     if (captchaPhotoRemoteUrl) {
       const executablePath = path.join(
         __dirname,
-        "../../../../src/scripts/normal+captcha.py",
+        "../../../src/scripts/normal+captcha.py",
       );
       console.log("Executable path: " + executablePath);
       const command = `python ${executablePath} ${captchaPhotoRemoteUrl}`;
@@ -57,15 +48,14 @@ export async function scrapeAmazonProduct(url: string) {
         captureValue = stdout.trim();
         console.log(`Result from python file`);
         console.log(captureValue);
+
         await page.waitForSelector("#captchacharacters");
         await page.type("#captchacharacters", captureValue);
+
         const button = await page.$(".a-button-text");
         button.click();
-        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-        // setTimeout(async () => {
-        // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
 
-        // }, 2000); // 1000 milliseconds = 1 second
+        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
       });
     }
     await page.waitForNavigation({ waitUntil: "domcontentloaded" });
@@ -98,33 +88,20 @@ export async function scrapeAmazonProduct(url: string) {
           const audioUrl = await page.$eval("source[type='audio/ogg']", (el) =>
             el.getAttribute("src"),
           );
-          console.log(`This is ${audioUrl}`);
-          // Start by making sure the `assemblyai` package is installed.
-          // If not, you can install it by running the following command:
-          // npm install assemblyai
-          console.log("API KEY = ", process.env.ASSEMBLY_AI_API_KEY);
           const client = new AssemblyAI({
             apiKey: String(process.env.ASSEMBLY_AI_API_KEY),
           });
-
           // Request parameters
           const data = {
             audio_url: audioUrl,
           };
-
           const getTranscript = async () => {
             const transcript = await client.transcripts.transcribe(data);
-            console.log(transcript.text);
             return transcript.text;
           };
 
           const processedTranscript = await getTranscript();
           const transcriptList = processedTranscript.split(" ");
-
-          console.log(
-            "Haha " +
-              transcriptList[transcriptList.length - 1].replace(".", ""),
-          );
           const processedAudioCaptchaValue = transcriptList[
             transcriptList.length - 1
           ].replace(".", "");
@@ -136,12 +113,10 @@ export async function scrapeAmazonProduct(url: string) {
             ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
             processedAudioCaptchaValue,
           );
-
           const continueButton = await page.$(
             ".a-button.a-button-span12.a-button-primary.cvf-widget-btn-captcha.cvf-widget-btn-verify-captcha",
           );
           await continueButton.click();
-
           await page.waitForNavigation({ waitUntil: "domcontentloaded" });
         }
       }, 2000);
@@ -165,8 +140,28 @@ export async function scrapeAmazonProduct(url: string) {
         ".a-icon-alt",
         (el) => el.textContent,
       );
-
-      console.log({ asin, title, price, averageRating });
+      const deliveryLocation = (
+        await page.$eval(
+          "span.nav-line-2.nav-progressive-content",
+          (el) => el.textContent,
+        )
+      ).trim();
+      const retailerName = (await page.$eval("#sellerProfileTriggerId", el => el.textContent)).trim()
+      const salesVolumeLastMonth = await (
+        await page.$eval(
+          "span.a-size-small.social-proofing-faceout-title-text",
+          (el) => el.textContent,
+        )
+      ).trim();
+      console.log({
+        asin,
+        title,
+        price,
+        averageRating,
+        salesVolumeLastMonth,
+        deliveryLocation,
+        retailer: retailerName
+      });
 
       // // After saved asin, title, price...., navigate to comment page
       const reviewButton = await page.$(".a-link-emphasis.a-text-bold");
@@ -174,29 +169,19 @@ export async function scrapeAmazonProduct(url: string) {
 
       await page.waitForNavigation({ waitUntil: "domcontentloaded" });
 
-      /** Change the sort by type */
-      // setTimeout(async () => {
-      //   const sortByButton = await page.$(
-      //     ".a-button.a-button-dropdown.cr-sort-dropdown",
-      //   );
-      //   await sortByButton.click();
-
-      //   const mostRecentButton = await page.$("a#sort-order-dropdown_1");
-      //   await mostRecentButton.click(); // Click to change the client-side URL.
-      // }, 2000);
       const comment_url = page.url() + "&sortBy=recent&pageNumber=1";
       console.log("After navigate = ", comment_url);
       await page.goto(comment_url);
 
-      // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-      // console.log(currentUrlInCommentPageComponents)
       /** Scrape the comments steps */
       // const listOfComments = await page.$$(".review.aok-relative");
       try {
         const commentContainer = await page.$(
           ".a-section.a-spacing-none.reviews-content.a-size-base",
         );
-        const listOfComments = await commentContainer.$$("div[data-hook='review']");
+        const listOfComments = await commentContainer.$$(
+          "div[data-hook='review']",
+        );
         console.log(
           "Length of this list of comments = ",
           listOfComments.length,
@@ -229,8 +214,7 @@ export async function scrapeAmazonProduct(url: string) {
               (el) => el.textContent,
             )) !== "";
           let helpfulCount = null;
-          // let locationAndDateRaw = null;
-          // let filteredLocationAndDate: string[] = [];
+
           try {
             helpfulCount = await listOfComments[i].$eval(
               "span[data-hook='helpful-vote-statement']",
@@ -240,16 +224,17 @@ export async function scrapeAmazonProduct(url: string) {
           } catch (error) {
             helpfulCount = "Unknown";
           }
-         let  locationAndDateRaw = await listOfComments[i].$eval(
+          let locationAndDateRaw = await listOfComments[i].$eval(
             "span[data-hook='review-date']",
             (el) => el.textContent,
           );
           let filteredLocationAndDate =
             extractCommendLocationAndDate(locationAndDateRaw);
+
           console.log({
             rating: filteredTitleAndRating[0].trim(),
             title: filteredTitleAndRating[1].trim(),
-            description: filteredDescription,
+            content: filteredDescription,
             verifiedPurchase,
             helpfulCount,
             location: filteredLocationAndDate[0],

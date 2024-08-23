@@ -5,7 +5,7 @@ import os
 from amazoncaptcha import AmazonCaptcha
 
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-api_key = os.getenv("TWOCAPCHA_API_KEY")
+# api_key = os.getenv("TWOCAPCHA_API_KEY")
 
 try:
     capcha = AmazonCaptcha.fromlink(str(sys.argv[1]))
