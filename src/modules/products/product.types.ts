@@ -4,10 +4,23 @@ export type PriceHistoryItem = {
 
 export type BaseProduct = {
   url: string;
-  currency: string;
   image: string;
   title: string;
-  price: BaseProductPrice;
+  price: {
+    amount: number;
+    currency: string;
+    displayAmount: string;
+    currentPrice: number;
+    originalPrice: number;
+    highestPrice: number;
+    lowestPrice: number;
+    savings: {
+      amount: number;
+      currency: string;
+      displayAmount: string; // "$34.77"
+      percentage: string; // "40%"
+    }
+  };
   description: string;
   category: string;
   numberOfComments: number;
@@ -25,26 +38,13 @@ export type BaseProduct = {
   }, 
   deliveryLocation: string;
   salesVolumeLastMonth: string | "Not Show";
-  averageSentimentAnalysis: BaseSentiment;
+  averageSentimentAnalysis: {
+    score: number;
+    emotion: string;
+  };
   businessTargetForCollecting: string;
-  // users?: User[];
 };
 
-export type BaseProductPrice = {
-  amount: number;
-  currency: string;
-  displayAmount: string;
-  currentPrice: number;
-  originalPrice: number;
-  highestPrice: number;
-  lowestPrice: number;
-  savings: {
-    amount: number;
-    currency: string;
-    displayAmount: string; // "$34.77"
-    percentage: string; // "40%"
-  }
-}
 
 export type CommentItem = {
   title: string;
@@ -62,10 +62,29 @@ export type CommentItem = {
   location: string;
   url: string;
   nextPage: string;
-  sentiment: BaseSentiment;
+  sentiment: {
+    score: number;
+    emotion: string;
+  };
 }
 
-export type BaseSentiment = {
-  score: number;
-  emotion: string;
-}
+// export type BaseSentiment = {
+//   score: number;
+//   emotion: string;
+// }
+
+// export type BaseProductPrice = {
+//   amount: number;
+//   currency: string;
+//   displayAmount: string;
+//   currentPrice: number;
+//   originalPrice: number;
+//   highestPrice: number;
+//   lowestPrice: number;
+//   savings: {
+//     amount: number;
+//     currency: string;
+//     displayAmount: string; // "$34.77"
+//     percentage: string; // "40%"
+//   }
+// }

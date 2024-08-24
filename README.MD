@@ -1,12 +1,36 @@
-# References
-https://github.com/jafari-dev/oop-expert-with-typescript/tree/master
+# Amazon Product Scraping
 
-Using omit for OOP design
+Foobar is a Python library for dealing with word pluralization.
 
-Todo list:
-- Recursive the comments
-- Design the schema of product and comments (note: add category for product item) 
-- Add sentiment (positive/negative/neutral) based on sentiment score to each comment (https://www.geeksforgeeks.org/how-to-create-sentiment-analysis-application-using-node-js/)
-(https://medium.com/@attiadhouha/sentiment-analysis-with-node-js-and-tensorflow-js-8c0d16aa7db9)
-- Validate allowed domains url before crawl the data
-- Save to database 
+## Overview
+This project, in collaboration with the Volmjr Network, is designed to efficiently scrape product data from Amazon. The aim is to extract detailed information about products, including pricing, reviews, ratings, and seller details. This data can then be used for various analytical purposes, including market research, sentiment analysis, and competitive analysis.
+
+
+## Features 
+- Product Data Extraction: Scrapes key product information, such as title, price, availability, ratings, and reviews.
+- Review Analysis: Collects and structures review data, including sentiments, ratings, and helpful counts.
+- Data Storage: Utilizes PostgreSQL's JSONB data type to store complex product and review data structures.
+- Automated CAPTCHA Handling: Implements techniques to automatically handle CAPTCHA challenges during the scraping process by combining NodeJS's executable command and Python's file .
+- TypeScript Integration: Ensures type safety and code quality by using TypeScript for defining data models and interacting with the database.
+
+## Database Schema
+The database schema is designed to efficiently store and manage scraped data. Key tables include:
+- Base Product: Stores the common product data, including pricing, categories, and sentiment analysis.
+- Comment Item: Stores customer reviews, ratings, and associated metadata.
+The schema is created using the seeder.sql script, and TypeScript types are auto-generated to ensure type-safe interactions with the database.
+## Setup and Installation
+
+### Prerequisites
++ Node.js: Ensure Node.js is installed on your machine.
++ PostgreSQL: A PostgreSQL database is required to store the scraped data.
++ Supabase: We use Supabase for managing the database and generating TypeScript types.
+## Usage 
+## Contributing
+We welcome contributions to this project! If you find a bug or have a feature request, please open an issue or submit a pull request.
+
+## Collaborators
+- Volmjr Network: Providing support and infrastructure for scalable scraping and data analysis.
+
+## License
+
+[MIT](https://choosealicense.com/licenses/mit/)

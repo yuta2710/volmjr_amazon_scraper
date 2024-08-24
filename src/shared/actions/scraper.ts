@@ -12,65 +12,74 @@ import {
 export async function scrapeAmazonProduct(url: string) {
   if (!url) return;
   const browser = await puppeteer.launch({
-    headless: false,
+    headless: true,
   });
 
   const page = await browser.newPage();
+  // await page.evaluateOnNewDocument(() => {
+  //   Object.defineProperty(navigator, 'webdriver', {
+  //     get: () => false,
+  //   });
+  // });
+  // await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
   await page.goto(url);
 
-  // Step solving normal captcha
+  // Step solving normal captcha when we set headless = false for debugging
   try {
-    const captchaPhotoRemoteUrl = await page.$eval(
-      "div.a-row.a-text-center > img",
-      (node) => node.getAttribute("src"),
-    );
+    // const captchaPhotoRemoteUrl = await page.$eval(
+    //   "div.a-row.a-text-center > img",
+    //   (node) => node.getAttribute("src"),
+    // );
 
-    console.log("\nLink " + captchaPhotoRemoteUrl);
-    let captureValue: string;
+    // console.log("\nLink " + captchaPhotoRemoteUrl);
+    // let captureValue: string;
 
-    if (captchaPhotoRemoteUrl) {
-      const executablePath = path.join(
-        __dirname,
-        "../../../src/scripts/normal+captcha.py",
-      );
-      console.log("Executable path: " + executablePath);
-      const command = `python ${executablePath} ${captchaPhotoRemoteUrl}`;
+    // if (captchaPhotoRemoteUrl) {
+    //   const executablePath = path.join(
+    //     __dirname,
+    //     "../../../src/scripts/normal+captcha.py",
+    //   );
+    //   console.log("Executable path: " + executablePath);
+    //   const command = `python ${executablePath} ${captchaPhotoRemoteUrl}`;
 
-      exec(command, async (error, stdout, stderr) => {
-        if (error) {
-          console.error(`Error: ${error.message}`);
-          return;
-        }
-        if (stderr) {
-          console.error(`stderr: ${stderr}`);
-          return;
-        }
-        captureValue = stdout.trim();
-        console.log(`Result from python file`);
-        console.log(captureValue);
+    //   exec(command, async (error, stdout, stderr) => {
+    //     if (error) {
+    //       console.error(`Error: ${error.message}`);
+    //       return;
+    //     }
+    //     if (stderr) {
+    //       console.error(`stderr: ${stderr}`);
+    //       return;
+    //     }
+    //     captureValue = stdout.trim();
+    //     console.log(`Result from python file`);
+    //     console.log(captureValue);
 
-        await page.waitForSelector("#captchacharacters");
-        await page.type("#captchacharacters", captureValue);
+    //     await page.waitForSelector("#captchacharacters");
+    //     await page.type("#captchacharacters", captureValue);
 
-        const button = await page.$(".a-button-text");
-        button.click();
+    //     const button = await page.$(".a-button-text");
+    //     button.click();
 
-        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-      });
-    }
-    await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+    //     await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+    //   });
+    // }
+    // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+
+    // Step to sign in 
     const signInButton = await page.$("a[data-nav-ref='nav_ya_signin']");
+    
     if (signInButton) {
       await signInButton.click();
       await page.waitForNavigation({ waitUntil: "domcontentloaded" });
 
       await page.waitForSelector("#ap_email");
-      await page.type("#ap_email", "nguyenphucloi2710@gmail.com");
+      await page.type("#ap_email", String(process.env.AMAZON_ACCOUNT_EMAIL));
       const continueButton = await page.$("#continue");
       await continueButton.click();
 
       await page.waitForSelector("#ap_password");
-      await page.type("#ap_password", "phucloi2710");
+      await page.type("#ap_password", String(process.env.AMAZON_ACCOUNT_PASSWORD));
 
       const signInSubmitButton = await page.$("#signInSubmit");
       await signInSubmitButton.click();
