@@ -18,12 +18,17 @@ The database schema is designed to efficiently store and manage scraped data. Ke
 - Base Product: Stores the common product data, including pricing, categories, and sentiment analysis.
 - Comment Item: Stores customer reviews, ratings, and associated metadata.
 The schema is created using the seeder.sql script, and TypeScript types are auto-generated to ensure type-safe interactions with the database.
+
 ## Setup and Installation
 
 ### Prerequisites
 + Node.js: Ensure Node.js is installed on your machine.
 + PostgreSQL: A PostgreSQL database is required to store the scraped data.
 + Supabase: We use Supabase for managing the database and generating TypeScript types.
++ Twilio
++ Python Virtual Environment: (.venv)
++ 
+
 ## Usage 
 ## Contributing
 We welcome contributions to this project! If you find a bug or have a feature request, please open an issue or submit a pull request.
