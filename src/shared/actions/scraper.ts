@@ -1,4 +1,4 @@
-import puppeteer from "puppeteer";
+import puppeteer, { Page } from "puppeteer";
 import { exec } from "child_process";
 import path from "path";
 import { AssemblyAI } from "assemblyai";
@@ -8,20 +8,19 @@ import {
   processNewlineSeparatedText,
   ProductFieldExtractorFromUrl,
 } from "./pipeline";
+import { setTimeout as delayPage } from "node:timers/promises";
 
 export async function scrapeAmazonProduct(url: string) {
   if (!url) return;
   const browser = await puppeteer.launch({
     headless: true,
+    defaultViewport: {
+      width: 2000,
+      height: 1200
+    }
   });
 
   const page = await browser.newPage();
-  // await page.evaluateOnNewDocument(() => {
-  //   Object.defineProperty(navigator, 'webdriver', {
-  //     get: () => false,
-  //   });
-  // });
-  // await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
   await page.goto(url);
 
   // Step solving normal captcha when we set headless = false for debugging
@@ -30,45 +29,51 @@ export async function scrapeAmazonProduct(url: string) {
     //   "div.a-row.a-text-center > img",
     //   (node) => node.getAttribute("src"),
     // );
+    const captchaPhotoRemoteUrl = await page.evaluate(() => {
+      const el = document.querySelector(
+        "div.a-row.a-text-center > img",
+      );
+      return el ? el.getAttribute("src") : "";
+    });
 
-    // console.log("\nLink " + captchaPhotoRemoteUrl);
-    // let captureValue: string;
 
-    // if (captchaPhotoRemoteUrl) {
-    //   const executablePath = path.join(
-    //     __dirname,
-    //     "../../../src/scripts/normal+captcha.py",
-    //   );
-    //   console.log("Executable path: " + executablePath);
-    //   const command = `python ${executablePath} ${captchaPhotoRemoteUrl}`;
+    console.log(captchaPhotoRemoteUrl);
+    let captureValue: string;
 
-    //   exec(command, async (error, stdout, stderr) => {
-    //     if (error) {
-    //       console.error(`Error: ${error.message}`);
-    //       return;
-    //     }
-    //     if (stderr) {
-    //       console.error(`stderr: ${stderr}`);
-    //       return;
-    //     }
-    //     captureValue = stdout.trim();
-    //     console.log(`Result from python file`);
-    //     console.log(captureValue);
+    if (captchaPhotoRemoteUrl !== "") {
+      const executablePath = path.join(
+        __dirname,
+        "../../../src/scripts/normal+captcha.py",
+      );
+      const command = `python ${executablePath} ${captchaPhotoRemoteUrl}`;
 
-    //     await page.waitForSelector("#captchacharacters");
-    //     await page.type("#captchacharacters", captureValue);
+      exec(command, async (error, stdout, stderr) => {
+        if (error) {
+          console.error(`Error: ${error.message}`);
+          return;
+        }
+        if (stderr) {
+          console.error(`stderr: ${stderr}`);
+          return;
+        }
+        captureValue = stdout.trim();
 
-    //     const button = await page.$(".a-button-text");
-    //     button.click();
+        await page.waitForSelector("#captchacharacters");
+        await page.type("#captchacharacters", captureValue);
 
-    //     await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-    //   });
-    // }
+        const button = await page.$(".a-button-text");
+        button.click();
+
+        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+      });
+    }
+
     // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+    await delayPage(2000)
 
-    // Step to sign in 
+    // Step to sign in
     const signInButton = await page.$("a[data-nav-ref='nav_ya_signin']");
-    
+
     if (signInButton) {
       await signInButton.click();
       await page.waitForNavigation({ waitUntil: "domcontentloaded" });
@@ -79,56 +84,60 @@ export async function scrapeAmazonProduct(url: string) {
       await continueButton.click();
 
       await page.waitForSelector("#ap_password");
-      await page.type("#ap_password", String(process.env.AMAZON_ACCOUNT_PASSWORD));
+      await page.type(
+        "#ap_password",
+        String(process.env.AMAZON_ACCOUNT_PASSWORD),
+      );
 
       const signInSubmitButton = await page.$("#signInSubmit");
       await signInSubmitButton.click();
 
       await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+      // await page.reload();
 
-      setTimeout(async () => {
-        const changeToAudioCaptchaButton = await page.$(
-          "a.a-link-normal.cvf-widget-link-alternative-captcha.cvf-widget-btn-val.cvf-widget-link-disable-target.captcha_refresh_link",
-        );
-        if (changeToAudioCaptchaButton) {
-          await changeToAudioCaptchaButton.click();
+      // setTimeout(async () => {
+      //   const changeToAudioCaptchaButton = await page.$(
+      //     "a.a-link-normal.cvf-widget-link-alternative-captcha.cvf-widget-btn-val.cvf-widget-link-disable-target.captcha_refresh_link",
+      //   );
+      //   if (changeToAudioCaptchaButton) {
+      //     await changeToAudioCaptchaButton.click();
 
-          await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-          const audioUrl = await page.$eval("source[type='audio/ogg']", (el) =>
-            el.getAttribute("src"),
-          );
-          const client = new AssemblyAI({
-            apiKey: String(process.env.ASSEMBLY_AI_API_KEY),
-          });
-          // Request parameters
-          const data = {
-            audio_url: audioUrl,
-          };
-          const getTranscript = async () => {
-            const transcript = await client.transcripts.transcribe(data);
-            return transcript.text;
-          };
+      //     await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+      //     const audioUrl = await page.$eval("source[type='audio/ogg']", (el) =>
+      //       el.getAttribute("src"),
+      //     );
+      //     const client = new AssemblyAI({
+      //       apiKey: String(process.env.ASSEMBLY_AI_API_KEY),
+      //     });
+      //     // Request parameters
+      //     const data = {
+      //       audio_url: audioUrl,
+      //     };
+      //     const getTranscript = async () => {
+      //       const transcript = await client.transcripts.transcribe(data);
+      //       return transcript.text;
+      //     };
 
-          const processedTranscript = await getTranscript();
-          const transcriptList = processedTranscript.split(" ");
-          const processedAudioCaptchaValue = transcriptList[
-            transcriptList.length - 1
-          ].replace(".", "");
+      //     const processedTranscript = await getTranscript();
+      //     const transcriptList = processedTranscript.split(" ");
+      //     const processedAudioCaptchaValue = transcriptList[
+      //       transcriptList.length - 1
+      //     ].replace(".", "");
 
-          await page.waitForSelector(
-            ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
-          );
-          await page.type(
-            ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
-            processedAudioCaptchaValue,
-          );
-          const continueButton = await page.$(
-            ".a-button.a-button-span12.a-button-primary.cvf-widget-btn-captcha.cvf-widget-btn-verify-captcha",
-          );
-          await continueButton.click();
-          await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-        }
-      }, 2000);
+      //     await page.waitForSelector(
+      //       ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
+      //     );
+      //     await page.type(
+      //       ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
+      //       processedAudioCaptchaValue,
+      //     );
+      //     const continueButton = await page.$(
+      //       ".a-button.a-button-span12.a-button-primary.cvf-widget-btn-captcha.cvf-widget-btn-verify-captcha",
+      //     );
+      //     await continueButton.click();
+      //     await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+      //   }
+      // }, 2000);
 
       /** Scrape the main data of the products */
       const asin = extractAsinFromUrl(
@@ -138,6 +147,7 @@ export async function scrapeAmazonProduct(url: string) {
       const title = (
         await page.$eval("#productTitle", (span) => span.textContent)
       ).trim();
+
       // await page.waitForSelector("span", {timeout: 5_000})
       const price = (
         await page.$eval(
@@ -145,6 +155,7 @@ export async function scrapeAmazonProduct(url: string) {
           (el) => el.textContent,
         )
       ).trim();
+      console.log("price = ", price)
       const averageRating = await page.$eval(
         ".a-icon-alt",
         (el) => el.textContent,
@@ -155,7 +166,9 @@ export async function scrapeAmazonProduct(url: string) {
           (el) => el.textContent,
         )
       ).trim();
-      const retailerName = (await page.$eval("#sellerProfileTriggerId", el => el.textContent)).trim()
+      const retailerName = (
+        await page.$eval("#sellerProfileTriggerId", (el) => el.textContent)
+      ).trim();
       const salesVolumeLastMonth = await (
         await page.$eval(
           "span.a-size-small.social-proofing-faceout-title-text",
@@ -169,7 +182,7 @@ export async function scrapeAmazonProduct(url: string) {
         averageRating,
         salesVolumeLastMonth,
         deliveryLocation,
-        retailer: retailerName
+        retailer: retailerName,
       });
 
       // // After saved asin, title, price...., navigate to comment page
@@ -182,81 +195,13 @@ export async function scrapeAmazonProduct(url: string) {
       console.log("After navigate = ", comment_url);
       await page.goto(comment_url);
 
-      /** Scrape the comments steps */
-      // const listOfComments = await page.$$(".review.aok-relative");
-      try {
-        const commentContainer = await page.$(
-          ".a-section.a-spacing-none.reviews-content.a-size-base",
-        );
-        const listOfComments = await commentContainer.$$(
-          "div[data-hook='review']",
-        );
-        console.log(
-          "Length of this list of comments = ",
-          listOfComments.length,
-        );
+      // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
 
-        for (let i = 0; i < listOfComments.length; i++) {
-          const titleAndRatingRawSelector = await listOfComments[i].$eval(
-            ".a-size-base.a-link-normal.review-title.a-color-base.review-title-content.a-text-bold",
-            (el) => el.textContent,
-          );
-          const currentUrlOfComment = await listOfComments[i].$eval(
-            ".a-size-base.a-link-normal.review-title.a-color-base.review-title-content.a-text-bold",
-            (el) => el.getAttribute("href"),
-          );
-
-          const description = await listOfComments[i].$eval(
-            ".a-size-base.review-text.review-text-content",
-            (el) => el.textContent,
-          );
-          const filteredTitleAndRating = (titleAndRatingRawSelector as string)
-            .split("\n")
-            .map((line) => line.trim())
-            .filter((line) => line.length > 0);
-          const filteredDescription = processNewlineSeparatedText(
-            description as string,
-          );
-          const verifiedPurchase =
-            (await listOfComments[i].$eval(
-              ".a-size-mini.a-color-state.a-text-bold",
-              (el) => el.textContent,
-            )) !== "";
-          let helpfulCount = null;
-
-          try {
-            helpfulCount = await listOfComments[i].$eval(
-              "span[data-hook='helpful-vote-statement']",
-              (el) => el.textContent,
-            );
-            // await page.waitForSelector("span[data-hook='review-date']", {timeout: 10_000})
-          } catch (error) {
-            helpfulCount = "Unknown";
-          }
-          let locationAndDateRaw = await listOfComments[i].$eval(
-            "span[data-hook='review-date']",
-            (el) => el.textContent,
-          );
-          let filteredLocationAndDate =
-            extractCommendLocationAndDate(locationAndDateRaw);
-
-          console.log({
-            rating: filteredTitleAndRating[0].trim(),
-            title: filteredTitleAndRating[1].trim(),
-            content: filteredDescription,
-            verifiedPurchase,
-            helpfulCount,
-            location: filteredLocationAndDate[0],
-            date: filteredLocationAndDate[1],
-            state: locationAndDateRaw,
-            url: currentUrlOfComment,
-          });
-        }
-      } catch (error) {
-        console.log(error);
-      }
-      // reviewerType=all_reviews&filterByStar=all_stars&pageNumber=1&sortBy=recent
-
+      const collectedComments = await scrapeCommentsRecursively(page);
+      console.log("\nCollected comments");
+      console.log(collectedComments);
+      
+      console.log("Total collected comments:", collectedComments.length);
       // https://www.amazon.com/Tanisa-Organic-Spring-Paper-Wrapper/product-reviews/B07KXPKRNK/ref=cm_cr_arp_d_viewpnt_lft?ie=UTF8&reviewerType=all_reviews&filterByStar=all_stars&pageNumber=1
     } else {
       console.error("Sign-in button not found");
@@ -267,5 +212,107 @@ export async function scrapeAmazonProduct(url: string) {
   try {
   } catch (err) {
     console.log(err);
+  }
+}
+
+async function scrapeCommentsRecursively(
+  page: Page,
+  collectedComments: any = [],
+) {
+  // await delayPage(2000);
+  const commentContainer = await page.$(
+    ".a-section.a-spacing-none.reviews-content.a-size-base",
+  );
+  const listOfComments = await commentContainer.$$("div[data-hook='review']");
+
+  console.log("Length of this list of comments = ", listOfComments.length);
+
+  for (let i = 0; i < listOfComments.length; i++) {
+    const titleAndRatingRawSelector = await listOfComments[i].$eval(
+      ".a-size-base.a-link-normal.review-title.a-color-base.review-title-content.a-text-bold",
+      (el) => el.textContent,
+    );
+    const currentUrlOfComment = await listOfComments[i].$eval(
+      ".a-size-base.a-link-normal.review-title.a-color-base.review-title-content.a-text-bold",
+      (el) => el.getAttribute("href"),
+    );
+    const description = await listOfComments[i].$eval(
+      ".a-size-base.review-text.review-text-content",
+      (el) => el.textContent,
+    );
+    const filteredTitleAndRating = (titleAndRatingRawSelector as string)
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    const filteredDescription = processNewlineSeparatedText(
+      description as string,
+    );
+
+    const verifiedPurchase = await listOfComments[i].evaluate(() => {
+      const el = document.querySelector(
+        ".a-size-mini.a-color-state.a-text-bold",
+      );
+      return el ? el.textContent : "";
+    });
+
+    let helpfulCount = null;
+
+    try {
+      helpfulCount = await listOfComments[i].$eval(
+        "span[data-hook='helpful-vote-statement']",
+        (el) => el.textContent,
+      );
+    } catch (error) {
+      helpfulCount = "Unknown";
+    }
+    let locationAndDateRaw = await listOfComments[i].$eval(
+      "span[data-hook='review-date']",
+      (el) => el.textContent,
+    );
+    let filteredLocationAndDate =
+      extractCommendLocationAndDate(locationAndDateRaw);
+
+    collectedComments.push({
+      rating: filteredTitleAndRating[0].trim(),
+      title: filteredTitleAndRating[1].trim(),
+      content: filteredDescription,
+      verifiedPurchase,
+      helpfulCount,
+      location: filteredLocationAndDate[0],
+      date: filteredLocationAndDate[1],
+      state: locationAndDateRaw,
+      url: currentUrlOfComment,
+    });
+  }
+
+  const isNextButtonDisabled = await page.$eval(
+    ".a-pagination li.a-last",
+    (el) => el.classList.contains("a-disabled"),
+  );
+
+  console.log("Is = ", isNextButtonDisabled);
+
+  const nextButtonClass = await page.$eval(
+    ".a-pagination li:nth-child(2)",
+    (el) => el.getAttribute("class"),
+  );
+  console.log("Class name of next button = ", nextButtonClass);
+
+  if (!nextButtonClass.includes("a-disabled a-last")) {
+    let nextButtonUrl: string = await page.$eval(
+      ".a-pagination li:nth-child(2) a",
+      (el) => el.getAttribute("href"),
+    );
+    nextButtonUrl = `https://${String(process.env.AMAZON_DOMAIN)}${nextButtonUrl}`;
+
+    console.log("Url");
+    console.log(nextButtonUrl);
+    await page.goto(nextButtonUrl);
+    // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+    // Recursive call to scrape the next page
+    return scrapeCommentsRecursively(page, collectedComments);
+  } else {
+    // No more pages, return collected comments
+    return collectedComments;
   }
 }
