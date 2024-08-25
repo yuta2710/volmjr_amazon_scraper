@@ -5,19 +5,23 @@ import { AssemblyAI } from "assemblyai";
 import {
   extractAsinFromUrl,
   extractCommendLocationAndDate,
+  processStarRatings,
   processNewlineSeparatedText,
   ProductFieldExtractorFromUrl,
+  filtrateData,
+  analyzeSentiment,
+  analyzeEmotionByScore,
 } from "./pipeline";
 import { setTimeout as delayPage } from "node:timers/promises";
+import { BaseProduct } from "@/modules/products/product.types";
+import * as util from "util";
 
 export async function scrapeAmazonProduct(url: string) {
   if (!url) return;
   const browser = await puppeteer.launch({
     headless: true,
-    defaultViewport: {
-      width: 2000,
-      height: 1200
-    }
+    // defaultViewport: null,
+    // args: ['--start-maximized']
   });
 
   const page = await browser.newPage();
@@ -25,19 +29,14 @@ export async function scrapeAmazonProduct(url: string) {
 
   // Step solving normal captcha when we set headless = false for debugging
   try {
-    // const captchaPhotoRemoteUrl = await page.$eval(
-    //   "div.a-row.a-text-center > img",
-    //   (node) => node.getAttribute("src"),
-    // );
     const captchaPhotoRemoteUrl = await page.evaluate(() => {
-      const el = document.querySelector(
-        "div.a-row.a-text-center > img",
-      );
+      const el = document.querySelector("div.a-row.a-text-center > img");
       return el ? el.getAttribute("src") : "";
     });
 
-
-    console.log(captchaPhotoRemoteUrl);
+    if (!captchaPhotoRemoteUrl) {
+      console.error("\nCaptcha URL not found");
+    }
     let captureValue: string;
 
     if (captchaPhotoRemoteUrl !== "") {
@@ -69,7 +68,7 @@ export async function scrapeAmazonProduct(url: string) {
     }
 
     // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-    await delayPage(2000)
+    await delayPage(2000);
 
     // Step to sign in
     const signInButton = await page.$("a[data-nav-ref='nav_ya_signin']");
@@ -95,70 +94,78 @@ export async function scrapeAmazonProduct(url: string) {
       await page.waitForNavigation({ waitUntil: "domcontentloaded" });
       // await page.reload();
 
-      // setTimeout(async () => {
-      //   const changeToAudioCaptchaButton = await page.$(
-      //     "a.a-link-normal.cvf-widget-link-alternative-captcha.cvf-widget-btn-val.cvf-widget-link-disable-target.captcha_refresh_link",
-      //   );
-      //   if (changeToAudioCaptchaButton) {
-      //     await changeToAudioCaptchaButton.click();
+      // Step to solve Captcha Audio
+      const changeToAudioCaptchaButton = await page.$(
+        "a.a-link-normal.cvf-widget-link-alternative-captcha.cvf-widget-btn-val.cvf-widget-link-disable-target.captcha_refresh_link",
+      );
+      if (changeToAudioCaptchaButton) {
+        await changeToAudioCaptchaButton.click();
 
-      //     await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-      //     const audioUrl = await page.$eval("source[type='audio/ogg']", (el) =>
-      //       el.getAttribute("src"),
-      //     );
-      //     const client = new AssemblyAI({
-      //       apiKey: String(process.env.ASSEMBLY_AI_API_KEY),
-      //     });
-      //     // Request parameters
-      //     const data = {
-      //       audio_url: audioUrl,
-      //     };
-      //     const getTranscript = async () => {
-      //       const transcript = await client.transcripts.transcribe(data);
-      //       return transcript.text;
-      //     };
+        // await delayPage(2000);
+        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+        const audioUrl = await page.$eval("source[type='audio/ogg']", (el) =>
+          el.getAttribute("src"),
+        );
+        const client = new AssemblyAI({
+          apiKey: String(process.env.ASSEMBLY_AI_API_KEY),
+        });
+        // Request parameters
+        const data = {
+          audio_url: audioUrl,
+        };
+        const getTranscript = async () => {
+          const transcript = await client.transcripts.transcribe(data);
+          return transcript.text;
+        };
 
-      //     const processedTranscript = await getTranscript();
-      //     const transcriptList = processedTranscript.split(" ");
-      //     const processedAudioCaptchaValue = transcriptList[
-      //       transcriptList.length - 1
-      //     ].replace(".", "");
+        const processedTranscript = await getTranscript();
+        const transcriptList = processedTranscript.split(" ");
+        const processedAudioCaptchaValue = transcriptList[
+          transcriptList.length - 1
+        ].replace(".", "");
 
-      //     await page.waitForSelector(
-      //       ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
-      //     );
-      //     await page.type(
-      //       ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
-      //       processedAudioCaptchaValue,
-      //     );
-      //     const continueButton = await page.$(
-      //       ".a-button.a-button-span12.a-button-primary.cvf-widget-btn-captcha.cvf-widget-btn-verify-captcha",
-      //     );
-      //     await continueButton.click();
-      //     await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-      //   }
-      // }, 2000);
+        console.log("Proccessed captcha value = ", processedAudioCaptchaValue);
+
+        await page.waitForSelector(
+          ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
+        );
+        await page.type(
+          ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
+          processedAudioCaptchaValue,
+        );
+        const continueButton = await page.$(
+          ".a-button.a-button-span12.a-button-primary.cvf-widget-btn-captcha.cvf-widget-btn-verify-captcha",
+        );
+        await continueButton.click();
+        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+      }
 
       /** Scrape the main data of the products */
       const asin = extractAsinFromUrl(
         page.url(),
         ProductFieldExtractorFromUrl.ASIN,
       );
+
       const title = (
         await page.$eval("#productTitle", (span) => span.textContent)
       ).trim();
 
-      // await page.waitForSelector("span", {timeout: 5_000})
       const price = (
         await page.$eval(
           ".a-price.aok-align-center.reinventPricePriceToPayMargin.priceToPay",
           (el) => el.textContent,
         )
       ).trim();
-      console.log("price = ", price)
-      const averageRating = await page.$eval(
+
+      const currency = price.split("")[0];
+
+      const averageRatingText = await page.$eval(
         ".a-icon-alt",
         (el) => el.textContent,
+      );
+
+      const filteredAverageRatingMetric = Number(
+        averageRatingText.split(" ")[0],
       );
       const deliveryLocation = (
         await page.$eval(
@@ -166,24 +173,65 @@ export async function scrapeAmazonProduct(url: string) {
           (el) => el.textContent,
         )
       ).trim();
+
       const retailerName = (
         await page.$eval("#sellerProfileTriggerId", (el) => el.textContent)
       ).trim();
+
       const salesVolumeLastMonth = await (
         await page.$eval(
           "span.a-size-small.social-proofing-faceout-title-text",
           (el) => el.textContent,
         )
       ).trim();
-      console.log({
+      const histogramTable = await page.$$("#histogramTable > li");
+      // console.log("Length of histogram table = ", histogramTable.length);
+      let historamItemMapper = [];
+
+      for (let i = 0; i < histogramTable.length; i++) {
+        const ratingItem = await histogramTable[i].$eval(
+          "span.a-list-item",
+          (el) => el.textContent,
+        );
+        historamItemMapper.push(ratingItem);
+      }
+      const rawRatingStars: string = historamItemMapper[0];
+      const filteredHistogramItems = processStarRatings(
+        rawRatingStars as string,
+      );
+      const selectedOption = await page.evaluate(() => {
+        const selectElement = document.querySelector(
+          "select.nav-search-dropdown.searchSelect.nav-progressive-attrubute.nav-progressive-search-dropdown",
+        );
+        const selectedOptionElement = selectElement.querySelector(
+          "option[selected = 'selected']",
+        );
+        return selectedOptionElement.textContent.trim(); // or use `.value` to get the value attribute
+      });
+      // console.log(`\nHistogram Mapper have ${historamItemMapper.length} result`)
+      console.log(`Metric of average rating = ${filteredAverageRatingMetric}`);
+
+      const scrapedProduct: BaseProduct = {
         asin,
         title,
-        price,
-        averageRating,
+        price: {
+          amount: Number(price.replace("$", "")),
+          currency,
+          displayAmount: String(price),
+          currentPrice: Number(price.replace("$", "")),
+          originalPrice: Number(price.replace("$", "")),
+          highestPrice: Number(price.replace("$", "")),
+          lowestPrice: Number(price.replace("$", "")),
+        },
+        histogram: filteredHistogramItems,
+        averageRating: filteredAverageRatingMetric,
         salesVolumeLastMonth,
         deliveryLocation,
         retailer: retailerName,
-      });
+        businessTargetForCollecting: "amazon",
+        url: String(page.url()),
+        category: selectedOption,
+      };
 
       // // After saved asin, title, price...., navigate to comment page
       const reviewButton = await page.$(".a-link-emphasis.a-text-bold");
@@ -195,13 +243,17 @@ export async function scrapeAmazonProduct(url: string) {
       console.log("After navigate = ", comment_url);
       await page.goto(comment_url);
 
-      // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-
+      // Set wating for the page fully loaded
+      await page.reload();
       const collectedComments = await scrapeCommentsRecursively(page);
       console.log("\nCollected comments");
       console.log(collectedComments);
-      
       console.log("Total collected comments:", collectedComments.length);
+      scrapedProduct.numberOfComments = collectedComments.length;
+
+      console.log("\nProduct complete scraping");
+      console.log(scrapedProduct);
+
       // https://www.amazon.com/Tanisa-Organic-Spring-Paper-Wrapper/product-reviews/B07KXPKRNK/ref=cm_cr_arp_d_viewpnt_lft?ie=UTF8&reviewerType=all_reviews&filterByStar=all_stars&pageNumber=1
     } else {
       console.error("Sign-in button not found");
@@ -272,6 +324,15 @@ async function scrapeCommentsRecursively(
     let filteredLocationAndDate =
       extractCommendLocationAndDate(locationAndDateRaw);
 
+    // let filtratedDescription =
+    console.log("\nFiltered started");
+
+    const sentimentTitle = analyzeSentiment(filteredTitleAndRating[1].trim())
+    const sentimentDescription = analyzeSentiment(filteredDescription.trim())
+
+    const averageSentimentScore: number = (Number(sentimentTitle["score"]) + Number(sentimentDescription["score"]) / 2)
+    const averageEmotion: string = analyzeEmotionByScore(averageSentimentScore as number);
+
     collectedComments.push({
       rating: filteredTitleAndRating[0].trim(),
       title: filteredTitleAndRating[1].trim(),
@@ -282,6 +343,10 @@ async function scrapeCommentsRecursively(
       date: filteredLocationAndDate[1],
       state: locationAndDateRaw,
       url: currentUrlOfComment,
+      sentiment: {
+        score: averageSentimentScore,
+        emotion: averageEmotion
+      }
     });
   }
 

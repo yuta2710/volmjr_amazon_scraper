@@ -32,6 +32,7 @@
     "@types/cors": "^2.8.17",
     "@types/lodash": "^4.17.7",
     "@types/morgan": "^1.9.9",
+    "@types/stopword": "^2.0.3",
     "2captcha-ts": "^2.3.6",
     "assemblyai": "^4.6.1",
     "axios": "^1.7.4",
@@ -48,7 +49,9 @@
     "lodash": "^4.17.21",
     "mongoose": "^8.5.3",
     "morgan": "^1.10.0",
+    "natural": "^8.0.1",
     "puppeteer": "^23.1.0",
-    "puppeteer-core": "^23.1.0"
+    "puppeteer-core": "^23.1.0",
+    "stopword": "^3.1.1"
   }
 }

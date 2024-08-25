@@ -3,8 +3,9 @@ export type PriceHistoryItem = {
 };
 
 export type BaseProduct = {
+  asin: string;
   url: string;
-  image: string;
+  image?: string;
   title: string;
   price: {
     amount: number;
@@ -14,37 +15,29 @@ export type BaseProduct = {
     originalPrice: number;
     highestPrice: number;
     lowestPrice: number;
-    savings: {
+    savings?: {
       amount: number;
       currency: string;
-      displayAmount: string; // "$34.77"
+      displayAmount: string; // "$34.77 with 40%"
       percentage: string; // "40%"
-    }
+    };
   };
-  description: string;
   category: string;
-  numberOfComments: number;
-  averageRating: number;
-  isOutOfStock: Boolean;
-  brand: string;
+  numberOfComments?: number;
+  averageRating?: number;
+  isOutOfStock?: Boolean;
+  brand?: string;
   retailer: string | "Not Show";
-  bestSellerRanks: [];
-  histogram: {
-    "5 star": string
-    "4 star": string, 
-    "3 star": string, 
-    "2 star": string, 
-    "1 star": string, 
-  }, 
+  bestSellerRanks?: [];
+  histogram: { [key: string]: string },
   deliveryLocation: string;
   salesVolumeLastMonth: string | "Not Show";
-  averageSentimentAnalysis: {
+  averageSentimentAnalysis?: {
     score: number;
     emotion: string;
   };
   businessTargetForCollecting: string;
 };
-
 
 export type CommentItem = {
   title: string;
@@ -55,7 +48,7 @@ export type CommentItem = {
     asin: string;
     name: string;
     category: string;
-  },
+  };
   helpfulCount: number;
   rating: string;
   verifiedPurchase: boolean;
@@ -66,7 +59,15 @@ export type CommentItem = {
     score: number;
     emotion: string;
   };
-}
+};
+
+export type ProductHistogram = {
+  "5 star": string;
+  "4 star": string;
+  "3 star": string;
+  "2 star": string;
+  "1 star": string;
+};
 
 // export type BaseSentiment = {
 //   score: number;

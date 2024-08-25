@@ -1,3 +1,7 @@
+import { WORD_DICT } from "../constants";
+import * as natural from "natural";
+import * as stopword from "stopword";
+
 export enum ProductFieldExtractorFromUrl {
   ASIN,
   NAME,
@@ -59,9 +63,116 @@ export const extractCommendLocationAndDate = (rawData: string): string[] => {
     const country = match[1]; // "United States"
     const date = match[2]; // "March 1, 2023"
     const resultArray = [country, date];
-    
-    return resultArray// Output: ["United States", "March 1, 2023"]
+
+    return resultArray; // Output: ["United States", "March 1, 2023"]
   } else {
     console.log("No match found");
+  }
+};
+
+export const processStarRatings = (
+  rawData: string,
+): { [key: string]: string } => {
+  // Step 1: Extract the star ratings and percentages
+  const ratings: string[] | null = rawData.match(/\d star/g);
+  const percentages: string[] | null = rawData.match(/\d+%/g);
+
+  // Step 2: Map the star ratings to their corresponding percentages
+  const ratingObj: { [key: string]: string } = {};
+
+  if (ratings && percentages) {
+    ratings.slice(0, 5).forEach((rating, index) => {
+      ratingObj[rating] = percentages[index];
+    });
+  }
+
+  return ratingObj;
+};
+
+// Contractions to standard lexicons Conversion
+const convertToStandard = (text: string) => {
+  const data = text.split(" ");
+  data.forEach((word, index) => {
+    Object.keys(WORD_DICT).forEach((key) => {
+      if (key === word.toLowerCase()) {
+        data[index] = WORD_DICT[key];
+      }
+    });
+  });
+
+  return data.join(" ");
+};
+
+// LowerCase Conversion
+const convertTolowerCase = (text: string) => {
+  return text.toLowerCase();
+};
+
+// Pure Alphabets extraction
+const removeNonAlpha = (text: string) => {
+  // This specific Regex means that replace all
+  //non alphabets with empty string.
+  return text.replace(/[^a-zA-Z\s]+/g, "");
+};
+
+export const filtrateData = (data: string) => {
+  const lexData = convertToStandard(data);
+  console.log("Lexed Data: ", lexData);
+
+  // Convert all data to lowercase
+  const lowerCaseData = convertTolowerCase(lexData);
+  console.log("LowerCase Format: ", lowerCaseData);
+
+  // Remove non alphabets and special characters
+  const onlyAlpha = removeNonAlpha(lowerCaseData);
+  console.log("OnlyAlpha: ", onlyAlpha);
+
+  // Tokenization
+  const tokenConstructor = new natural.WordTokenizer();
+  const tokenizedData = tokenConstructor.tokenize(onlyAlpha);
+  console.log("Tokenized Data: ", tokenizedData);
+
+  // Remove Stopwords
+  const filteredData = stopword.removeStopwords(tokenizedData);
+  console.log("After removing stopwords: ", filteredData);
+};
+
+export const analyzeSentiment = (
+  data: string,
+): { score: number; emotion: string } => {
+  const lexData = convertToStandard(data);
+
+  // Convert all data to lowercase
+  const lowerCaseData = convertTolowerCase(lexData);
+
+  // Remove non alphabets and special characters
+  const onlyAlpha = removeNonAlpha(lowerCaseData);
+
+  // Tokenization
+  const tokenConstructor = new natural.WordTokenizer();
+  const tokenizedData = tokenConstructor.tokenize(onlyAlpha);
+
+  // Remove Stopwords
+  const filteredData: string[] = stopword.removeStopwords(tokenizedData);
+  const SentimentAnalyzer = new natural.SentimentAnalyzer(
+    "English",
+    natural.PorterStemmer,
+    "afinn",
+  );
+  const score = SentimentAnalyzer.getSentiment(filteredData);
+  let emotion: string = analyzeEmotionByScore(score as number);
+  return {
+    score,
+    emotion,
+  };
+};
+
+export const analyzeEmotionByScore = (score: number): string => {
+  if (score > 0) {
+    return "positive";
+  } else if (score < 0) {
+    return "negative";
+  } else {
+    return "neutral";
   }
 };
