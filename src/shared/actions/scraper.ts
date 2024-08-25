@@ -13,15 +13,38 @@ import {
   analyzeEmotionByScore,
 } from "./pipeline";
 import { setTimeout as delayPage } from "node:timers/promises";
-import { BaseProduct } from "@/modules/products/product.types";
+import { BaseProduct, CommentItem } from "@/modules/products/product.types";
 import * as util from "util";
 
+/**
+ * Scrapes product information and reviews from an Amazon product page.
+ *
+ * @param {string} url - The URL of the Amazon product page to scrape.
+ */
 export async function scrapeAmazonProduct(url: string) {
   if (!url) return;
+
+  // let browser;
+  // if (String(process.env.IS_BROWSER_IN_HEADLESS_MODE) === "ON") {
+  //   browser = await puppeteer.launch({
+  //     headless: true,
+  //   });
+  // } else {
+  // browser = await puppeteer.launch({
+  //   headless: false,
+  //   defaultViewport: null,
+  //   args: ["--start-maximized"],
+  // });
+  // }
+
+  // const browser = await puppeteer.launch({
+  //   headless: true,
+  // });
+
   const browser = await puppeteer.launch({
-    headless: true,
-    // defaultViewport: null,
-    // args: ['--start-maximized']
+    headless: false,
+    defaultViewport: null,
+    args: ["--start-maximized"],
   });
 
   const page = await browser.newPage();
@@ -137,9 +160,10 @@ export async function scrapeAmazonProduct(url: string) {
           ".a-button.a-button-span12.a-button-primary.cvf-widget-btn-captcha.cvf-widget-btn-verify-captcha",
         );
         await continueButton.click();
-        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+        // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
       }
 
+      await page.reload();
       /** Scrape the main data of the products */
       const asin = extractAsinFromUrl(
         page.url(),
@@ -150,14 +174,24 @@ export async function scrapeAmazonProduct(url: string) {
         await page.$eval("#productTitle", (span) => span.textContent)
       ).trim();
 
-      const price = (
-        await page.$eval(
-          ".a-price.aok-align-center.reinventPricePriceToPayMargin.priceToPay",
-          (el) => el.textContent,
-        )
-      ).trim();
+      // console.log("Title = ", title.trim())
 
-      const currency = price.split("")[0];
+      // let price: string;
+      // let currency;
+
+      // try {
+      //   price = (
+      //     await page.$eval(
+      //       ".a-price.aok-align-center.reinventPricePriceToPayMargin.priceToPay",
+      //       (el) => el.textContent,
+      //     )
+      //   ).trim();
+
+      //   currency = price && price.split("")[0];
+      // } catch (error) {
+      //   price = ""
+      //   currency = ""
+      // }
 
       const averageRatingText = await page.$eval(
         ".a-icon-alt",
@@ -174,16 +208,16 @@ export async function scrapeAmazonProduct(url: string) {
         )
       ).trim();
 
-      const retailerName = (
-        await page.$eval("#sellerProfileTriggerId", (el) => el.textContent)
-      ).trim();
+      // const retailerName = (
+      //   await page.$eval("#sellerProfileTriggerId", (el) => el.textContent)
+      // ).trim();
 
-      const salesVolumeLastMonth = await (
-        await page.$eval(
-          "span.a-size-small.social-proofing-faceout-title-text",
-          (el) => el.textContent,
-        )
-      ).trim();
+      // const salesVolumeLastMonth = await (
+      //   await page.$eval(
+      //     "span.a-size-small.social-proofing-faceout-title-text",
+      //     (el) => el.textContent,
+      //   )
+      // ).trim();
       const histogramTable = await page.$$("#histogramTable > li");
       // console.log("Length of histogram table = ", histogramTable.length);
       let historamItemMapper = [];
@@ -214,20 +248,20 @@ export async function scrapeAmazonProduct(url: string) {
       const scrapedProduct: BaseProduct = {
         asin,
         title,
-        price: {
-          amount: Number(price.replace("$", "")),
-          currency,
-          displayAmount: String(price),
-          currentPrice: Number(price.replace("$", "")),
-          originalPrice: Number(price.replace("$", "")),
-          highestPrice: Number(price.replace("$", "")),
-          lowestPrice: Number(price.replace("$", "")),
-        },
+        // price: {
+        //   amount: Number(price.replace("$", "")),
+        //   currency,
+        //   displayAmount: String(price),
+        //   currentPrice: Number(price.replace("$", "")),
+        //   originalPrice: Number(price.replace("$", "")),
+        //   highestPrice: Number(price.replace("$", "")),
+        //   lowestPrice: Number(price.replace("$", "")),
+        // },
         histogram: filteredHistogramItems,
         averageRating: filteredAverageRatingMetric,
-        salesVolumeLastMonth,
+        // salesVolumeLastMonth,
         deliveryLocation,
-        retailer: retailerName,
+        // retailer: retailerName,
         businessTargetForCollecting: "amazon",
         url: String(page.url()),
         category: selectedOption,
@@ -244,12 +278,50 @@ export async function scrapeAmazonProduct(url: string) {
       await page.goto(comment_url);
 
       // Set wating for the page fully loaded
-      await page.reload();
-      const collectedComments = await scrapeCommentsRecursively(page);
+      // await page.reload();
+      
+      const collectedComments: CommentItem[] =
+        await scrapeCommentsRecursively(page);
       console.log("\nCollected comments");
       console.log(collectedComments);
       console.log("Total collected comments:", collectedComments.length);
+
       scrapedProduct.numberOfComments = collectedComments.length;
+
+      if (collectedComments.length > 0) {
+        const totalScore = collectedComments.reduce(
+          (sum, data: CommentItem) => {
+            const score = data.sentiment.score;
+            return (
+              sum + (typeof score === "number" && !isNaN(score) ? score : 0)
+            );
+          },
+          0,
+        );
+
+        const listOfScoreFromComments = collectedComments.map((comment: CommentItem) => comment.sentiment.score)
+
+        console.log(`\nList score of comments ${listOfScoreFromComments.length}`)
+        console.log(listOfScoreFromComments)
+
+        // Calculate the average sentiment score
+        const averageSentimentScoreOfScrapedProduct: number = Number(
+          (totalScore / collectedComments.length).toFixed(1),
+        );
+
+        // Analyze the emotion based on the average sentiment score
+        const averageSentimentEmotionOfScrapedProduct: string =
+          analyzeEmotionByScore(averageSentimentScoreOfScrapedProduct);
+
+        // Ensure that scrapedProduct.averageSentimentAnalysis is properly initialized
+        scrapedProduct.averageSentimentAnalysis = {
+          score: averageSentimentScoreOfScrapedProduct,
+          emotion: averageSentimentEmotionOfScrapedProduct,
+        };
+      } else {
+        console.error("No comments found in collectedComments.");
+        // Handle the case where there are no comments
+      }
 
       console.log("\nProduct complete scraping");
       console.log(scrapedProduct);
@@ -267,87 +339,120 @@ export async function scrapeAmazonProduct(url: string) {
   }
 }
 
+/**
+ * Recursively scrapes comments from an Amazon product page, collecting all available comments
+ * across multiple pages by navigating through the pagination.
+ *
+ * @param {Page} page - The Puppeteer page object representing the current browser tab.
+ * @param {any[]} collectedComments - An array to store the collected comments across all pages. Defaults to an empty array.
+ * @returns {Promise<any[]>} A promise that resolves to the array of all collected comments.
+ */
 async function scrapeCommentsRecursively(
   page: Page,
-  collectedComments: any = [],
+  collectedComments: CommentItem[] = [],
 ) {
   // await delayPage(2000);
-  const commentContainer = await page.$(
+  const queryCommentPrimaryContainer = await page.$(
     ".a-section.a-spacing-none.reviews-content.a-size-base",
   );
-  const listOfComments = await commentContainer.$$("div[data-hook='review']");
 
-  console.log("Length of this list of comments = ", listOfComments.length);
+  const queryListOfComments = await queryCommentPrimaryContainer.$$(
+    "div[data-hook='review']",
+  );
 
-  for (let i = 0; i < listOfComments.length; i++) {
-    const titleAndRatingRawSelector = await listOfComments[i].$eval(
+  console.log("Length of this list of comments = ", queryListOfComments.length);
+
+  for (let i = 0; i < queryListOfComments.length; i++) {
+    let commentItem: CommentItem;
+    const titleAndRatingRawText = await queryListOfComments[i].$eval(
       ".a-size-base.a-link-normal.review-title.a-color-base.review-title-content.a-text-bold",
       (el) => el.textContent,
     );
-    const currentUrlOfComment = await listOfComments[i].$eval(
+    const currentUrlOfComment = await queryListOfComments[i].$eval(
       ".a-size-base.a-link-normal.review-title.a-color-base.review-title-content.a-text-bold",
       (el) => el.getAttribute("href"),
     );
-    const description = await listOfComments[i].$eval(
+    const description = await queryListOfComments[i].$eval(
       ".a-size-base.review-text.review-text-content",
       (el) => el.textContent,
     );
-    const filteredTitleAndRating = (titleAndRatingRawSelector as string)
+    const filtratedTitleAndRatingAsList = (titleAndRatingRawText as string)
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
-    const filteredDescription = processNewlineSeparatedText(
+
+    const filtratedDescription = processNewlineSeparatedText(
       description as string,
     );
 
-    const verifiedPurchase = await listOfComments[i].evaluate(() => {
+    const isVerifiedPurchase = await queryListOfComments[i].evaluate(() => {
       const el = document.querySelector(
         ".a-size-mini.a-color-state.a-text-bold",
       );
-      return el ? el.textContent : "";
+      return el.textContent !== "";
     });
 
     let helpfulCount = null;
 
     try {
-      helpfulCount = await listOfComments[i].$eval(
+      helpfulCount = await queryListOfComments[i].$eval(
         "span[data-hook='helpful-vote-statement']",
         (el) => el.textContent,
       );
     } catch (error) {
       helpfulCount = "Unknown";
     }
-    let locationAndDateRaw = await listOfComments[i].$eval(
+
+    let locationAndDateRawText = await queryListOfComments[i].$eval(
       "span[data-hook='review-date']",
       (el) => el.textContent,
     );
-    let filteredLocationAndDate =
-      extractCommendLocationAndDate(locationAndDateRaw);
 
-    // let filtratedDescription =
-    console.log("\nFiltered started");
+    // Steps to filter the data
+    const filtratedLocationAndDateAsList = extractCommendLocationAndDate(
+      locationAndDateRawText,
+    );
+    const filtratedLocation = filtratedLocationAndDateAsList[0];
+    const filtratedDate = filtratedLocationAndDateAsList[1];
+    const filtratedRating = filtratedTitleAndRatingAsList[0].trim();
+    const filtratedTitle = filtratedTitleAndRatingAsList[1].trim();
 
-    const sentimentTitle = analyzeSentiment(filteredTitleAndRating[1].trim())
-    const sentimentDescription = analyzeSentiment(filteredDescription.trim())
+    const sentimentTitle = analyzeSentiment(filtratedTitle);
+    const sentimentDescription = analyzeSentiment(filtratedDescription.trim());
 
-    const averageSentimentScore: number = (Number(sentimentTitle["score"]) + Number(sentimentDescription["score"]) / 2)
-    const averageEmotion: string = analyzeEmotionByScore(averageSentimentScore as number);
+    const averageSentimentScore: number = Number(
+      (
+        (Number(sentimentTitle["score"]) +
+          Number(sentimentDescription["score"])) /
+        2
+      ).toFixed(1),
+    );
+    const averageSentimentEmotion: string = analyzeEmotionByScore(
+      averageSentimentScore as number,
+    );
 
-    collectedComments.push({
-      rating: filteredTitleAndRating[0].trim(),
-      title: filteredTitleAndRating[1].trim(),
-      content: filteredDescription,
-      verifiedPurchase,
+    commentItem = {
+      rating: filtratedRating,
+      title: filtratedTitle,
+      content: filtratedDescription,
+      isVerifiedPurchase,
       helpfulCount,
-      location: filteredLocationAndDate[0],
-      date: filteredLocationAndDate[1],
-      state: locationAndDateRaw,
+      location: filtratedLocation,
+      date: filtratedDate,
       url: currentUrlOfComment,
       sentiment: {
         score: averageSentimentScore,
-        emotion: averageEmotion
-      }
-    });
+        emotion: averageSentimentEmotion,
+      },
+      // product: {
+      //   id: ,
+      //   asin: string;
+      //   name: string;
+      //   category: string;
+      // };
+    };
+
+    collectedComments.push(commentItem);
   }
 
   const isNextButtonDisabled = await page.$eval(

@@ -3,11 +3,11 @@ export type PriceHistoryItem = {
 };
 
 export type BaseProduct = {
-  asin: string;
-  url: string;
+  asin?: string;
+  url?: string;
   image?: string;
-  title: string;
-  price: {
+  title?: string;
+  price?: {
     amount: number;
     currency: string;
     displayAmount: string;
@@ -22,39 +22,38 @@ export type BaseProduct = {
       percentage: string; // "40%"
     };
   };
-  category: string;
+  category?: string;
   numberOfComments?: number;
   averageRating?: number;
   isOutOfStock?: Boolean;
   brand?: string;
-  retailer: string | "Not Show";
+  retailer?: string | "Not Show";
   bestSellerRanks?: [];
-  histogram: { [key: string]: string },
-  deliveryLocation: string;
-  salesVolumeLastMonth: string | "Not Show";
+  histogram?: { [key: string]: string },
+  deliveryLocation?: string;
+  salesVolumeLastMonth?: string | "Not Show";
   averageSentimentAnalysis?: {
     score: number;
     emotion: string;
   };
-  businessTargetForCollecting: string;
+  businessTargetForCollecting?: string;
 };
 
 export type CommentItem = {
   title: string;
   content: string;
-  date: Date;
-  product: {
+  date: string;
+  product?: {
     id: string;
     asin: string;
     name: string;
     category: string;
   };
-  helpfulCount: number;
+  helpfulCount: string;
   rating: string;
-  verifiedPurchase: boolean;
+  isVerifiedPurchase: boolean;
   location: string;
   url: string;
-  nextPage: string;
   sentiment: {
     score: number;
     emotion: string;
