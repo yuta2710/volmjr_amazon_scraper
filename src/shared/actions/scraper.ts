@@ -16,7 +16,10 @@ import {
 import { setTimeout as delayPage } from "node:timers/promises";
 import { BaseProduct, CommentItem } from "@/modules/products/product.types";
 import * as util from "util";
-import CategoryNode, { buildCategoryHierarchy, saveCategoryHierarchy } from "../category";
+import CategoryNode, {
+  buildCategoryHierarchy,
+  saveCategoryHierarchy,
+} from "../category";
 
 /**
  * Scrapes product information and reviews from an Amazon product page.
@@ -52,7 +55,8 @@ export async function scrapeAmazonProduct(url: string) {
   const page = await browser.newPage();
   await page.goto(url);
 
-  // Step solving normal captcha when we set headless = false for debugging
+  /**
+   * TODO: ============================================================= Step solving normal captcha when we set headless = false for debugging ============================================================= */
   try {
     const captchaPhotoRemoteUrl = await page.evaluate(() => {
       const el = document.querySelector("div.a-row.a-text-center > img");
@@ -95,7 +99,8 @@ export async function scrapeAmazonProduct(url: string) {
     // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
     await delayPage(2000);
 
-    // Step to sign in
+    /**
+     * TODO: ============================================================= Step to sign in ============================================================= */
     const signInButton = await page.$("a[data-nav-ref='nav_ya_signin']");
 
     if (signInButton) {
@@ -119,7 +124,8 @@ export async function scrapeAmazonProduct(url: string) {
       await page.waitForNavigation({ waitUntil: "domcontentloaded" });
       // await page.reload();
 
-      // Step to solve Captcha Audio
+      /**
+       * TODO: ============================================================= Step to check captcha audio verification if it requires ============================================================= */
       const changeToAudioCaptchaButton = await page.$(
         "a.a-link-normal.cvf-widget-link-alternative-captcha.cvf-widget-btn-val.cvf-widget-link-disable-target.captcha_refresh_link",
       );
@@ -167,7 +173,8 @@ export async function scrapeAmazonProduct(url: string) {
 
       // await page.reload();
 
-      /** ============================================================= Scrape the main data of the products ============================================================= */
+      /**
+       * TODO: ============================================================= Scrape the main data of the products ============================================================= */
       const asin = extractAsinFromUrl(
         page.url(),
         ProductFieldExtractorFromUrl.ASIN,
@@ -358,10 +365,11 @@ export async function scrapeAmazonProduct(url: string) {
         END_RULE,
       );
       categoryHierarchy.displayHierarchyAsJSON();
-      
+
       // SAVED TO DB: Category
-      console.log("\nSaving category started.......")
-      const insertedCategoryId: number = await saveCategoryHierarchy(categoryHierarchy);
+      console.log("\nSaving category started.......");
+      const insertedCategoryId: number =
+        await saveCategoryHierarchy(categoryHierarchy);
 
       try {
         const percentageText = await page.$eval(
@@ -376,7 +384,8 @@ export async function scrapeAmazonProduct(url: string) {
         console.warn("\nPercentage not displayed");
       }
 
-      // Completed product
+      /**
+       * ! This is the completed product but still miss these fields (numberOfComments, averageSentimentAnalysis) */
       const scrapedProduct: BaseProduct = {
         asin,
         title,
@@ -406,7 +415,7 @@ export async function scrapeAmazonProduct(url: string) {
         isOutOfStock,
       };
 
-      // // After saved asin, title, price...., navigate to comment page
+      // After saved asin, title, price...., navigate to comment page
       const reviewButton = await page.$(".a-link-emphasis.a-text-bold");
       await reviewButton.click();
 
@@ -418,8 +427,9 @@ export async function scrapeAmazonProduct(url: string) {
       // Set wating for the page fully loaded
       // await page.reload();
 
-      const collectedComments: CommentItem[] =
-        await scrapeCommentsRecursively(page);
+      /**
+       * TODO: ============================================================= Steps to scrape the comments ============================================================= */
+      const collectedComments: CommentItem[] = await scrapeCommentsRecursively(page);
       console.log("\nCollected comments");
       // console.log(collectedComments);
       console.log("Total collected comments:", collectedComments.length);
@@ -465,6 +475,9 @@ export async function scrapeAmazonProduct(url: string) {
         // Handle the case where there are no comments
       }
 
+      /** 
+       * * Product's data structure is completed 
+        */
       console.log("\nProduct complete scraping");
       console.log(scrapedProduct);
 
@@ -482,9 +495,8 @@ export async function scrapeAmazonProduct(url: string) {
 }
 
 /**
- * Recursively scrapes comments from an Amazon product page, collecting all available comments
- * across multiple pages by navigating through the pagination.
- *
+ * * Across multiple pages by navigating through the pagination.
+ * TODO: Recursively scrapes comments from an Amazon product page, collecting all available comments
  * @param {Page} page - The Puppeteer page object representing the current browser tab.
  * @param {any[]} collectedComments - An array to store the collected comments across all pages. Defaults to an empty array.
  * @returns {Promise<any[]>} A promise that resolves to the array of all collected comments.
