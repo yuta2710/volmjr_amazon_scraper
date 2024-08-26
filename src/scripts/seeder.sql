@@ -7,6 +7,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Create the category table 
+CREATE TABLE category (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  lft INTEGER NOT NULL,
+  rgt INTEGER NOT NULL,
+  parent_id INTEGER REFERENCES category(id) ON DELETE SET NULL,
+  UNIQUE (name, lft, rgt)
+);
+
+
 -- Create the base_product table with constraints on JSONB fields
 CREATE TABLE base_products (
     id SERIAL PRIMARY KEY,
@@ -67,7 +78,7 @@ CREATE TABLE base_products (
     ),
 
     description TEXT,
-    category TEXT,
+    category INTEGER REFERENCES category(id) ON DELETE CASCADE,
     number_of_comments INTEGER,
     average_rating DECIMAL(3, 2),
     is_out_of_stock BOOLEAN,
@@ -118,10 +129,5 @@ CREATE TABLE comments (
     )
 );
 
--- Create the category table 
-CREATE TABLE categories (
-  id SERIAL PRIMARY KEY,  -- Unique identifier for each category
-  name TEXT NOT NULL,     -- The name of the category
-  lft INTEGER NOT NULL,   -- Left value for the Nested Set Model
-  rgt INTEGER NOT NULL    -- Right value for the Nested Set Model
-);
+
+-- supabase gen types typescript --project-id abcdefghijklmnopqrst > database.types.ts

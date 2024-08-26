@@ -11,11 +11,12 @@ import {
   filtrateData,
   analyzeSentiment,
   analyzeEmotionByScore,
+  extractComponentsOfPrice,
 } from "./pipeline";
 import { setTimeout as delayPage } from "node:timers/promises";
 import { BaseProduct, CommentItem } from "@/modules/products/product.types";
 import * as util from "util";
-import CategoryNode, { buildCategoryHierarchy } from "../category";
+import CategoryNode, { buildCategoryHierarchy, saveCategoryHierarchy } from "../category";
 
 /**
  * Scrapes product information and reviews from an Amazon product page.
@@ -190,7 +191,7 @@ export async function scrapeAmazonProduct(url: string) {
 
         if (priceText) {
           currentPrice = priceText;
-          currency = currentPrice.split("")[0];
+          currency = extractComponentsOfPrice(currentPrice)[0] as string;
         }
       } catch (error) {
         console.warn(
@@ -328,13 +329,10 @@ export async function scrapeAmazonProduct(url: string) {
       let categoryContainerSelectorList = await page.$$(
         "#wayfinding-breadcrumbs_feature_div ul > li",
       );
-      console.log(
-        "categoryContainerSelectorList length = ",
-        categoryContainerSelectorList.length,
-      );
 
       let filtratedCategories: string[] = [];
 
+      // Process the data in selector list
       if (categoryContainerSelectorList.length > 0) {
         for (let i = 0; i < categoryContainerSelectorList.length; i++) {
           let categoryText = await categoryContainerSelectorList[i].$eval(
@@ -345,17 +343,24 @@ export async function scrapeAmazonProduct(url: string) {
         }
       }
 
+      // Remove the special character
       filtratedCategories = filtratedCategories.filter((data) => data !== "›");
-      const totalCategoryNode: number = filtratedCategories.length;
 
+      // Setup the 2N rule
+      const totalCategoryNode: number = filtratedCategories.length;
       const STAR_RULE = 1;
       const END_RULE = 2 * totalCategoryNode;
+
+      // Build the tree of category
       let categoryHierarchy: CategoryNode = buildCategoryHierarchy(
         filtratedCategories,
         STAR_RULE,
         END_RULE,
       );
-      categoryHierarchy.displayHierarchy();
+      categoryHierarchy.displayHierarchyAsJSON();
+
+      console.log("\nSaving category started.......")
+      await saveCategoryHierarchy(categoryHierarchy);
 
       try {
         const percentageText = await page.$eval(
@@ -378,15 +383,15 @@ export async function scrapeAmazonProduct(url: string) {
           amount: originalPriceMetric,
           currency,
           displayAmount: String(originalPrice),
-          currentPrice: Number(currentPrice.replace("$", "")),
+          currentPrice: extractComponentsOfPrice(currentPrice)[1] as number,
           originalPrice: originalPriceMetric,
           highestPrice: originalPriceMetric,
-          lowestPrice: Number(currentPrice.replace("$", "")),
+          lowestPrice: extractComponentsOfPrice(currentPrice)[1] as number,
           savings: {
             percentage,
             currency,
             displayAmount: String(currentPrice),
-            amount: Number(currentPrice.replace("$", "")),
+            amount: extractComponentsOfPrice(currentPrice)[1] as number,
           },
         },
         histogram: filtratedHistogramItems,
@@ -406,7 +411,6 @@ export async function scrapeAmazonProduct(url: string) {
       await reviewButton.click();
 
       await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-
       const comment_url = page.url() + "&sortBy=recent&pageNumber=1";
       console.log("After navigate = ", comment_url);
       await page.goto(comment_url);

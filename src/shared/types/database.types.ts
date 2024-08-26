@@ -9,46 +9,153 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      comments: {
+      base_products: {
         Row: {
+          average_rating: number | null
+          average_sentiment_analysis: Json
+          best_seller_ranks: string[] | null
+          brand: string | null
+          business_target_for_collecting: string | null
+          category: number | null
+          delivery_location: string | null
           description: string | null
-          helpful_count: number | null
+          histogram: Json
           id: number
-          location: string | null
-          product_id: number | null
-          rating: string | null
+          image: string | null
+          is_out_of_stock: boolean | null
+          number_of_comments: number | null
+          price: Json
+          retailer: string | null
+          sales_volume_last_month: string | null
           title: string
-          verified_purchase: boolean | null
+          url: string
         }
         Insert: {
+          average_rating?: number | null
+          average_sentiment_analysis: Json
+          best_seller_ranks?: string[] | null
+          brand?: string | null
+          business_target_for_collecting?: string | null
+          category?: number | null
+          delivery_location?: string | null
           description?: string | null
-          helpful_count?: number | null
+          histogram: Json
           id?: number
-          location?: string | null
-          product_id?: number | null
-          rating?: string | null
+          image?: string | null
+          is_out_of_stock?: boolean | null
+          number_of_comments?: number | null
+          price: Json
+          retailer?: string | null
+          sales_volume_last_month?: string | null
           title: string
-          verified_purchase?: boolean | null
+          url: string
         }
         Update: {
+          average_rating?: number | null
+          average_sentiment_analysis?: Json
+          best_seller_ranks?: string[] | null
+          brand?: string | null
+          business_target_for_collecting?: string | null
+          category?: number | null
+          delivery_location?: string | null
           description?: string | null
-          helpful_count?: number | null
+          histogram?: Json
           id?: number
-          location?: string | null
-          product_id?: number | null
-          rating?: string | null
+          image?: string | null
+          is_out_of_stock?: boolean | null
+          number_of_comments?: number | null
+          price?: Json
+          retailer?: string | null
+          sales_volume_last_month?: string | null
           title?: string
-          verified_purchase?: boolean | null
+          url?: string
         }
         Relationships: [
           {
-            foreignKeyName: "comments_product_id_fkey"
-            columns: ["product_id"]
+            foreignKeyName: "base_products_category_fkey"
+            columns: ["category"]
             isOneToOne: false
-            referencedRelation: "products"
+            referencedRelation: "category"
             referencedColumns: ["id"]
           },
         ]
+      }
+      category: {
+        Row: {
+          id: number
+          lft: number
+          name: string
+          parent_id: number | null
+          rgt: number
+        }
+        Insert: {
+          id?: number
+          lft: number
+          name: string
+          parent_id?: number | null
+          rgt: number
+        }
+        Update: {
+          id?: number
+          lft?: number
+          name?: string
+          parent_id?: number | null
+          rgt?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "category_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "category"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comments: {
+        Row: {
+          content: string
+          date: string
+          helpful_count: number
+          id: number
+          location: string
+          next_page: string
+          product: Json
+          rating: string
+          sentiment: Json
+          title: string
+          url: string
+          verified_purchase: boolean
+        }
+        Insert: {
+          content: string
+          date: string
+          helpful_count: number
+          id?: number
+          location: string
+          next_page: string
+          product: Json
+          rating: string
+          sentiment: Json
+          title: string
+          url: string
+          verified_purchase: boolean
+        }
+        Update: {
+          content?: string
+          date?: string
+          helpful_count?: number
+          id?: number
+          location?: string
+          next_page?: string
+          product?: Json
+          rating?: string
+          sentiment?: Json
+          title?: string
+          url?: string
+          verified_purchase?: boolean
+        }
+        Relationships: []
       }
       products: {
         Row: {
@@ -156,7 +263,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      validate_percentage: {
+        Args: {
+          percentage: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

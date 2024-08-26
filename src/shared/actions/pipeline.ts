@@ -55,6 +55,10 @@ export const extractAsinFromUrl = (
   }
 };
 
+export const extractComponentsOfPrice = (rawData: string): [string, number] => {
+  return [rawData.split("")[0], Number(rawData.replace("$", ""))]
+}
+
 export const extractCommendLocationAndDate = (rawData: string): string[] => {
   const regex = /in the (.*?) on (.*)/;
   const match = rawData.match(regex);
@@ -185,3 +189,4 @@ export const analyzeEmotionByScore = (score: number): string => {
     return "neutral";
   }
 };
+
