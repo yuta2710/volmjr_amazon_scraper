@@ -13,6 +13,9 @@ This project, in collaboration with the Volmjr Network, is designed to efficient
 - Automated CAPTCHA Handling: Implements techniques to automatically handle CAPTCHA challenges during the scraping process by combining NodeJS's executable command and Python's file .
 - TypeScript Integration: Ensures type safety and code quality by using TypeScript for defining data models and interacting with the database.
 
+## Limitations 
+Recently, Amazon has imposed a restriction that prevents users from accessing more than the first 10 pages of product reviews. It means that the default sorting allows you to access only 100 reviews.
+
 ## Database Schema
 The database schema is designed to efficiently store and manage scraped data. Key tables include:
 - Base Product: Stores the common product data, including pricing, categories, and sentiment analysis.
@@ -27,7 +30,6 @@ The schema is created using the seeder.sql script, and TypeScript types are auto
 + Supabase: We use Supabase for managing the database and generating TypeScript types.
 + Twilio
 + Python Virtual Environment: (.venv)
-+ 
 
 ## Usage 
 ## Contributing

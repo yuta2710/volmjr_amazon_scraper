@@ -15,6 +15,7 @@ import {
 import { setTimeout as delayPage } from "node:timers/promises";
 import { BaseProduct, CommentItem } from "@/modules/products/product.types";
 import * as util from "util";
+import CategoryNode, { buildCategoryHierarchy } from "../category";
 
 /**
  * Scrapes product information and reviews from an Amazon product page.
@@ -163,8 +164,9 @@ export async function scrapeAmazonProduct(url: string) {
         // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
       }
 
-      await page.reload();
-      /** Scrape the main data of the products */
+      // await page.reload();
+
+      /** ============================================================= Scrape the main data of the products ============================================================= */
       const asin = extractAsinFromUrl(
         page.url(),
         ProductFieldExtractorFromUrl.ASIN,
@@ -174,33 +176,65 @@ export async function scrapeAmazonProduct(url: string) {
         await page.$eval("#productTitle", (span) => span.textContent)
       ).trim();
 
-      // console.log("Title = ", title.trim())
+      // Current price text
+      let currentPrice: string;
+      let currency: string;
 
-      // let price: string;
-      // let currency;
+      try {
+        const priceText = (
+          await page.$eval(
+            ".a-price.aok-align-center.reinventPricePriceToPayMargin.priceToPay",
+            (el) => el.textContent,
+          )
+        ).trim();
 
-      // try {
-      //   price = (
-      //     await page.$eval(
-      //       ".a-price.aok-align-center.reinventPricePriceToPayMargin.priceToPay",
-      //       (el) => el.textContent,
-      //     )
-      //   ).trim();
+        if (priceText) {
+          currentPrice = priceText;
+          currency = currentPrice.split("")[0];
+        }
+      } catch (error) {
+        console.warn(
+          "Price element not found or unable to extract price:",
+          error,
+        );
+        currentPrice = ""; // or set to null or some default value
+        currency = ""; // or set to a default value if needed
+      }
 
-      //   currency = price && price.split("")[0];
-      // } catch (error) {
-      //   price = ""
-      //   currency = ""
-      // }
+      // Original price
+      let originalPrice: string;
+      let originalPriceMetric: number;
 
+      try {
+        const originalPriceText = await page.$eval(
+          "span.a-size-small.a-color-secondary.aok-align-center.basisPrice span.a-offscreen",
+          (el) => el.textContent.trim(),
+        );
+
+        if (originalPriceText) {
+          originalPrice = originalPriceText;
+          originalPriceMetric = Number(originalPrice.replace("$", ""));
+        }
+      } catch (error) {
+        console.warn(
+          "Price element not found or unable to extract price:",
+          error,
+        );
+        originalPrice = "";
+        originalPriceMetric = 0;
+      }
+
+      // Average rating of product
       const averageRatingText = await page.$eval(
         ".a-icon-alt",
         (el) => el.textContent,
       );
 
-      const filteredAverageRatingMetric = Number(
+      const filtratedAverageRatingMetric = Number(
         averageRatingText.split(" ")[0],
       );
+
+      // Delivery location
       const deliveryLocation = (
         await page.$eval(
           "span.nav-line-2.nav-progressive-content",
@@ -208,16 +242,37 @@ export async function scrapeAmazonProduct(url: string) {
         )
       ).trim();
 
-      // const retailerName = (
-      //   await page.$eval("#sellerProfileTriggerId", (el) => el.textContent)
-      // ).trim();
+      const retailerElement = await page.$(
+        "span.a-size-small.offer-display-feature-text-message",
+      );
+      let retailerName: string | null = null;
 
-      // const salesVolumeLastMonth = await (
-      //   await page.$eval(
-      //     "span.a-size-small.social-proofing-faceout-title-text",
-      //     (el) => el.textContent,
-      //   )
-      // ).trim();
+      if (retailerElement) {
+        retailerName = await page.evaluate(
+          (el) => el.textContent.trim(),
+          retailerElement,
+        );
+      } else {
+        console.warn("Retailer name element not found.");
+        retailerName = "Not show";
+      }
+
+      // Filtrated sales volume last month
+      let filtratedSalesVolumeLastMonth: string | null;
+      try {
+        const salesVolumeLastMonthText = await (
+          await page.$eval(
+            "span.a-size-small.social-proofing-faceout-title-text",
+            (el) => el.textContent,
+          )
+        ).trim();
+
+        if (salesVolumeLastMonthText) {
+          filtratedSalesVolumeLastMonth = salesVolumeLastMonthText;
+        }
+      } catch (error) {
+        filtratedSalesVolumeLastMonth = "Not show";
+      }
       const histogramTable = await page.$$("#histogramTable > li");
       // console.log("Length of histogram table = ", histogramTable.length);
       let historamItemMapper = [];
@@ -229,10 +284,12 @@ export async function scrapeAmazonProduct(url: string) {
         );
         historamItemMapper.push(ratingItem);
       }
+
       const rawRatingStars: string = historamItemMapper[0];
-      const filteredHistogramItems = processStarRatings(
+      const filtratedHistogramItems = processStarRatings(
         rawRatingStars as string,
       );
+
       const selectedOption = await page.evaluate(() => {
         const selectElement = document.querySelector(
           "select.nav-search-dropdown.searchSelect.nav-progressive-attrubute.nav-progressive-search-dropdown",
@@ -242,29 +299,106 @@ export async function scrapeAmazonProduct(url: string) {
         );
         return selectedOptionElement.textContent.trim(); // or use `.value` to get the value attribute
       });
-      // console.log(`\nHistogram Mapper have ${historamItemMapper.length} result`)
-      console.log(`Metric of average rating = ${filteredAverageRatingMetric}`);
 
+      // Out of stock
+      let isOutOfStock: boolean | null;
+
+      try {
+        const outOfStockText = await page.$eval(
+          "div#availability > span",
+          (el) => el.textContent.trim().toLowerCase(),
+        );
+        isOutOfStock = !outOfStockText.includes("in stock");
+      } catch (error) {
+        console.warn(
+          "Out of stock element not found or unable to determine stock status:",
+          error,
+        );
+        isOutOfStock = false;
+      }
+
+      console.log("Is Out of Stock:", isOutOfStock);
+      // console.log(`\nHistogram Mapper have ${historamItemMapper.length} result`)
+      console.log(`Metric of average rating = ${filtratedAverageRatingMetric}`);
+      console.log("Original price = ", originalPrice);
+
+      // Percentage selling
+      let percentage: string | null;
+
+      let categoryContainerSelectorList = await page.$$(
+        "#wayfinding-breadcrumbs_feature_div ul > li",
+      );
+      console.log(
+        "categoryContainerSelectorList length = ",
+        categoryContainerSelectorList.length,
+      );
+
+      let filtratedCategories: string[] = [];
+
+      if (categoryContainerSelectorList.length > 0) {
+        for (let i = 0; i < categoryContainerSelectorList.length; i++) {
+          let categoryText = await categoryContainerSelectorList[i].$eval(
+            "span",
+            (el) => el.textContent.trim(),
+          );
+          filtratedCategories.push(categoryText);
+        }
+      }
+
+      filtratedCategories = filtratedCategories.filter((data) => data !== "›");
+      const totalCategoryNode: number = filtratedCategories.length;
+
+      const STAR_RULE = 1;
+      const END_RULE = 2 * totalCategoryNode;
+      let categoryHierarchy: CategoryNode = buildCategoryHierarchy(
+        filtratedCategories,
+        STAR_RULE,
+        END_RULE,
+      );
+      categoryHierarchy.displayHierarchy();
+
+      try {
+        const percentageText = await page.$eval(
+          "span.a-size-large.a-color-price.savingPriceOverride.aok-align-center.reinventPriceSavingsPercentageMargin.savingsPercentage",
+          (el) => el.textContent.trim().toLowerCase(),
+        );
+
+        if (percentageText) {
+          percentage = percentageText;
+        }
+      } catch (error) {
+        console.warn("\nPercentage not displayed");
+      }
+
+      // Completed product
       const scrapedProduct: BaseProduct = {
         asin,
         title,
-        // price: {
-        //   amount: Number(price.replace("$", "")),
-        //   currency,
-        //   displayAmount: String(price),
-        //   currentPrice: Number(price.replace("$", "")),
-        //   originalPrice: Number(price.replace("$", "")),
-        //   highestPrice: Number(price.replace("$", "")),
-        //   lowestPrice: Number(price.replace("$", "")),
-        // },
-        histogram: filteredHistogramItems,
-        averageRating: filteredAverageRatingMetric,
-        // salesVolumeLastMonth,
+        price: {
+          amount: originalPriceMetric,
+          currency,
+          displayAmount: String(originalPrice),
+          currentPrice: Number(currentPrice.replace("$", "")),
+          originalPrice: originalPriceMetric,
+          highestPrice: originalPriceMetric,
+          lowestPrice: Number(currentPrice.replace("$", "")),
+          savings: {
+            percentage,
+            currency,
+            displayAmount: String(currentPrice),
+            amount: Number(currentPrice.replace("$", "")),
+          },
+        },
+        histogram: filtratedHistogramItems,
+        averageRating: filtratedAverageRatingMetric,
+        salesVolumeLastMonth: filtratedSalesVolumeLastMonth,
         deliveryLocation,
-        // retailer: retailerName,
+        retailer: retailerName,
         businessTargetForCollecting: "amazon",
         url: String(page.url()),
-        category: selectedOption,
+        // category: selectedOption,
+        isOutOfStock,
+        // categoryTest: filtratedCategories
       };
 
       // // After saved asin, title, price...., navigate to comment page
@@ -279,11 +413,11 @@ export async function scrapeAmazonProduct(url: string) {
 
       // Set wating for the page fully loaded
       // await page.reload();
-      
+
       const collectedComments: CommentItem[] =
         await scrapeCommentsRecursively(page);
       console.log("\nCollected comments");
-      console.log(collectedComments);
+      // console.log(collectedComments);
       console.log("Total collected comments:", collectedComments.length);
 
       scrapedProduct.numberOfComments = collectedComments.length;
@@ -299,10 +433,14 @@ export async function scrapeAmazonProduct(url: string) {
           0,
         );
 
-        const listOfScoreFromComments = collectedComments.map((comment: CommentItem) => comment.sentiment.score)
+        const listOfScoreFromComments = collectedComments.map(
+          (comment: CommentItem) => comment.sentiment.score,
+        );
 
-        console.log(`\nList score of comments ${listOfScoreFromComments.length}`)
-        console.log(listOfScoreFromComments)
+        console.log(
+          `\nList score of comments ${listOfScoreFromComments.length}`,
+        );
+        console.log(listOfScoreFromComments);
 
         // Calculate the average sentiment score
         const averageSentimentScoreOfScrapedProduct: number = Number(

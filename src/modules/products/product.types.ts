@@ -1,3 +1,5 @@
+import CategoryNode from "@/shared/category";
+
 export type PriceHistoryItem = {
   price: number;
 };
@@ -8,30 +10,30 @@ export type BaseProduct = {
   image?: string;
   title?: string;
   price?: {
-    amount: number;
-    currency: string;
-    displayAmount: string;
-    currentPrice: number;
-    originalPrice: number;
-    highestPrice: number;
-    lowestPrice: number;
+    amount?: number | 0;
+    currency?: string | "$";
+    displayAmount?: string | "";
+    currentPrice?: number | 0;
+    originalPrice?: number | 0;
+    highestPrice?: number | 0;
+    lowestPrice?: number | 0;
     savings?: {
-      amount: number;
-      currency: string;
-      displayAmount: string; // "$34.77 with 40%"
-      percentage: string; // "40%"
+      amount?: number | 0;
+      currency?: string | "";
+      displayAmount?: string | ""; // "$34.77 with 40%"
+      percentage?: string | ""; // "40%"
     };
   };
-  category?: string;
+  category?: number;
   numberOfComments?: number;
   averageRating?: number;
   isOutOfStock?: Boolean;
   brand?: string;
-  retailer?: string | "Not Show";
+  retailer?: string | "Not show";
   bestSellerRanks?: [];
   histogram?: { [key: string]: string },
   deliveryLocation?: string;
-  salesVolumeLastMonth?: string | "Not Show";
+  salesVolumeLastMonth?: string | "Not show";
   averageSentimentAnalysis?: {
     score: number;
     emotion: string;

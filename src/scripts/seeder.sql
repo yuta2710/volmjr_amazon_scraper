@@ -117,3 +117,11 @@ CREATE TABLE comments (
         jsonb_typeof(sentiment->'emotion') = 'string'
     )
 );
+
+-- Create the category table 
+CREATE TABLE categories (
+  id SERIAL PRIMARY KEY,  -- Unique identifier for each category
+  name TEXT NOT NULL,     -- The name of the category
+  lft INTEGER NOT NULL,   -- Left value for the Nested Set Model
+  rgt INTEGER NOT NULL    -- Right value for the Nested Set Model
+);

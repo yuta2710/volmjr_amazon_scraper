@@ -159,8 +159,8 @@ export const analyzeSentiment = (
     natural.PorterStemmer,
     "afinn",
   );
-  const rawScore = SentimentAnalyzer.getSentiment(filteredData)
-  if (typeof rawScore === 'number' && !isNaN(rawScore)) {
+  const rawScore = SentimentAnalyzer.getSentiment(filteredData);
+  if (typeof rawScore === "number" && !isNaN(rawScore)) {
     const score = Number(rawScore.toFixed(1)); // Ensure the score is a number with 1 decimal place
     let emotion: string = analyzeEmotionByScore(score);
     return {
@@ -170,8 +170,8 @@ export const analyzeSentiment = (
   } else {
     console.error("Invalid rawScore:", rawScore);
     return {
-      score: 0,  // Default value in case of an invalid score
-      emotion: "neutral",  // Default emotion
+      score: 0, // Default value in case of an invalid score
+      emotion: "neutral", // Default emotion
     };
   }
 };
