@@ -358,9 +358,10 @@ export async function scrapeAmazonProduct(url: string) {
         END_RULE,
       );
       categoryHierarchy.displayHierarchyAsJSON();
-
+      
+      // SAVED TO DB: Category
       console.log("\nSaving category started.......")
-      await saveCategoryHierarchy(categoryHierarchy);
+      const insertedCategoryId: number = await saveCategoryHierarchy(categoryHierarchy);
 
       try {
         const percentageText = await page.$eval(
@@ -401,9 +402,8 @@ export async function scrapeAmazonProduct(url: string) {
         retailer: retailerName,
         businessTargetForCollecting: "amazon",
         url: String(page.url()),
-        // category: selectedOption,
+        category: insertedCategoryId,
         isOutOfStock,
-        // categoryTest: filtratedCategories
       };
 
       // // After saved asin, title, price...., navigate to comment page

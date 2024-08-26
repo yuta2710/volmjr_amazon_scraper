@@ -101,11 +101,13 @@ export async function checkAndInsertCategory(
 }
 
 
-export async function saveCategoryHierarchy(node: CategoryNode, parentId: number | null = null): Promise<void> {
+export async function saveCategoryHierarchy(node: CategoryNode, parentId: number | null = null): Promise<number> {
   const categoryId = await checkAndInsertCategory(node, parentId);
 
   // Recursively save all child nodes
   for (const child of node.children) {
     await saveCategoryHierarchy(child, categoryId);
   }
+
+  return categoryId;
 }

@@ -13,7 +13,8 @@ This project, in collaboration with the Volmjr Network, is designed to efficient
 - Automated CAPTCHA Handling: Implements techniques to automatically handle CAPTCHA challenges during the scraping process by combining NodeJS's executable command and Python's file .
 - TypeScript Integration: Ensures type safety and code quality by using TypeScript for defining data models and interacting with the database.
 
-## Limitations 
+## Limitations
+### Comments Restriction 
 Recently, Amazon has imposed a restriction that prevents users from accessing more than the first 10 pages of product reviews. It means that the default sorting allows you to access only 100 reviews.
 
 ## Database Schema
