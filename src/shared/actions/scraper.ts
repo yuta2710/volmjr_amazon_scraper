@@ -17,11 +17,7 @@ import {
   CommentItem,
   AmazonScrapedResponse,
 } from "@/modules/products/product.types";
-import * as util from "util";
-import CategoryNode, {
-  buildCategoryHierarchy,
-  saveCategoryHierarchy,
-} from "../category";
+import CategoryNode, { buildCategoryHierarchy } from "../category";
 
 /**
  * Scrapes product information and reviews from an Amazon product page.
@@ -40,6 +36,8 @@ export async function scrapeAmazonProduct(
   const page = await browser.newPage();
   await page.goto(url).catch(console.error);
 
+      /**
+   * TODO: ============================================================= [AUTHENTICATION] - check Captcha Audio verification if it requires ============================================================= */
   async function checkAndSolveNormalCaptcha() {
     try {
       const captchaPhotoSelector = "div.a-row.a-text-center > img";
@@ -89,11 +87,6 @@ export async function scrapeAmazonProduct(
       console.error("Error handling captcha:", err.message);
     }
   }
-
-  await checkAndSolveNormalCaptcha();
-
-  /**
-   * TODO: ============================================================= [AUTHENTICATION] - check Captcha Audio verification if it requires ============================================================= */
   // Function to check for the presence of the captcha
   async function checkAndHandleCaptchaAudio() {
     const captchaSelector =
@@ -160,9 +153,6 @@ export async function scrapeAmazonProduct(
     }
   }
 
-  // Call the captcha check function after sign-in attempt
-  await checkAndHandleCaptchaAudio();
-
   async function attemptSignIn() {
     try {
       await page.waitForSelector("a[data-nav-ref='nav_ya_signin']", {
@@ -214,9 +204,7 @@ export async function scrapeAmazonProduct(
     }
   }
 
-  // Initial normal captcha check
-  await checkAndSolveNormalCaptcha().catch(console.error);
-
+  await checkAndSolveNormalCaptcha();
   // Attempt sign-in with retries
   let signInAttempts = 3;
   let signedIn = false;
@@ -614,6 +602,8 @@ export async function scrapeAmazonProduct(
   }
   // https://www.amazon.com/Tanisa-Organic-Spring-Paper-Wrapper/product-reviews/B07KXPKRNK/ref=cm_cr_arp_d_viewpnt_lft?ie=UTF8&reviewerType=all_reviews&filterByStar=all_stars&pageNumber=1
 }
+
+
 
 /**
  * * Across multiple pages by navigating through the pagination.

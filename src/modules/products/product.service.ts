@@ -51,9 +51,14 @@ export default class BaseProductService {
     if (scrapedDataResponse) {
       if (scrapedDataResponse.category) {
         console.error("Concac tao ne");
-        const insertedCategoryId: number = await saveCategoryHierarchy(
-          scrapedDataResponse.category as CategoryNode,
-        );
+        let insertedCategoryId: number;
+        try {
+          insertedCategoryId = await saveCategoryHierarchy(
+            scrapedDataResponse.category as CategoryNode,
+          );
+        } catch (error) {
+          console.log(error);
+        }
 
         console.error("\nProduct ID = ", insertedCategoryId);
 

@@ -76,14 +76,20 @@ export async function checkAndInsertCategory(
   parentId: number | null = null,
 ): Promise<number> {
   try {
-    const { data, error } = await supabase
+    console.error("Name of cat node = ", catNode.name)
+    console.error("Name of cat node trim = ", catNode.name.trim())
+
+    const { data: existData, error } = await supabase
     .from("category")
     .select("id")
     .eq("name", catNode.name)
-    .eq("parent_id", parentId)
     .single();
 
-  if(error || !data) {
+
+    console.error("\n\n Exist data of category")
+    console.log(existData);
+
+  if(error || !existData) {
     const { data: insertData, error: insertError } = await supabase
     .from("category")
     .insert({
@@ -98,7 +104,7 @@ export async function checkAndInsertCategory(
     return insertData[0].id;
   }
 
-  return data.id;
+  return existData.id;
   } catch (error) {
     console.error("Error in checkAndInsertCategory:", error.message);
     throw error;
