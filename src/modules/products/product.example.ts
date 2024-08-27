@@ -37,3 +37,9 @@ async function insertProduct(product: TablesInsert<"base_products">) {
 // };
 
 // insertProduct(newProduct);
+
+
+
+
+
+

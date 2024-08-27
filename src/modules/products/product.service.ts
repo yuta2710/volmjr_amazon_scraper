@@ -4,9 +4,15 @@ import { NextFunction, Request, Response } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { Database } from "../../shared/types/database.types";
 import { scrapeAmazonProduct } from "../../shared/actions/scraper";
-import { AmazonScrapedResponse, CommentItem } from "./product.types";
+import {
+  AmazonScrapedResponse,
+  BaseProduct,
+  CommentItem,
+} from "./product.types";
 import CategoryNode, { saveCategoryHierarchy } from "../../shared/category";
 import { TablesInsert } from "../../shared/types/database.types";
+import { GREEN, RESET } from "../../shared/constants";
+import AmazonBaseProductRepository from "./product.repository";
 
 type BaseProductInsert = TablesInsert<"base_products">;
 type BaseCommentInsert = TablesInsert<"comments">;
@@ -21,6 +27,11 @@ type AmazonScrapingProductRequest = {
 };
 
 export default class BaseProductService {
+  private productRepository = new AmazonBaseProductRepository(
+    String(process.env.SUPABASE_URL),
+    String(process.env.SUPABASE_ANON_KEY),
+  );
+
   createProduct = async (
     req: Request,
     res: Response,
@@ -35,9 +46,7 @@ export default class BaseProductService {
 
     console.log("\n\nResponse");
     console.log(scrapedDataResponse);
-
-    // console.log("\nProcessed comment results");
-    // console.log(scrapedDataResponse.comments);
+    console.log("\n\n");
 
     if (scrapedDataResponse) {
       if (scrapedDataResponse.category) {
@@ -47,95 +56,126 @@ export default class BaseProductService {
         );
 
         console.error("\nProduct ID = ", insertedCategoryId);
+
+        /**
+         * TODO: Check condition exist of product
+         */
         if (scrapedDataResponse.product) {
-          scrapedDataResponse.product.category = insertedCategoryId as number;
+          // Check existence of product
+          const scrapedProductFromBrowser =
+            scrapedDataResponse.product as BaseProduct;
+          scrapedProductFromBrowser.category = insertedCategoryId as number;
 
           const validatedPrice = {
-            amount: scrapedDataResponse.product.price.amount ?? 0,
-            currency: scrapedDataResponse.product.price.currency ?? "$",
-            displayAmount:
-              scrapedDataResponse.product.price.displayAmount ?? "",
-            currentPrice: scrapedDataResponse.product.price.currentPrice ?? 0,
+            amount: scrapedProductFromBrowser.price.amount ?? 0,
+            currency: scrapedProductFromBrowser.price.currency ?? "$",
+            displayAmount: scrapedProductFromBrowser.price.displayAmount ?? "",
+            currentPrice: scrapedProductFromBrowser.price.currentPrice ?? 0,
             originalPrice:
-              scrapedDataResponse.product.price.originalPrice > 0
-                ? scrapedDataResponse.product.price.originalPrice
+              scrapedProductFromBrowser.price.originalPrice > 0
+                ? scrapedProductFromBrowser.price.originalPrice
                 : 0, // Ensure valid value or null
             highestPrice:
-              scrapedDataResponse.product.price.highestPrice > 0
-                ? scrapedDataResponse.product.price.highestPrice
+              scrapedProductFromBrowser.price.highestPrice > 0
+                ? scrapedProductFromBrowser.price.highestPrice
                 : 0, // Ensure valid value or null
-            lowestPrice: scrapedDataResponse.product.price.lowestPrice ?? 0,
+            lowestPrice: scrapedProductFromBrowser.price.lowestPrice ?? 0,
             savings: {
-              amount: scrapedDataResponse.product.price.savings?.amount ?? 0,
-              currency:
-                scrapedDataResponse.product.price.savings?.currency ?? "",
+              amount: scrapedProductFromBrowser.price.savings?.amount ?? 0,
+              currency: scrapedProductFromBrowser.price.savings?.currency ?? "",
               displayAmount:
-                scrapedDataResponse.product.price.savings?.displayAmount ?? "",
+                scrapedProductFromBrowser.price.savings?.displayAmount ?? "",
               percentage:
-                scrapedDataResponse.product.price.savings?.percentage?.replace(
+                scrapedProductFromBrowser.price.savings?.percentage?.replace(
                   "-",
                   "",
                 ) ?? "", // Handle empty strings
             },
           };
 
-          console.error("\nValidated Price");
+          console.error(GREEN + "\nValidated Price" + RESET);
           console.log(validatedPrice);
 
-          const productData: BaseProductInsert = {
+          const productInsertData: BaseProductInsert = {
             // Map and validate your scraped data to the expected structure
-            title: scrapedDataResponse.product.title,
-            url: scrapedDataResponse.product.url,
-            image: scrapedDataResponse.product.image,
+            title: scrapedProductFromBrowser.title,
+            url: scrapedProductFromBrowser.url,
+            image: scrapedProductFromBrowser.image,
             price: validatedPrice,
-            average_rating: scrapedDataResponse.product.averageRating ?? null,
+            average_rating: scrapedProductFromBrowser.averageRating ?? null,
             average_sentiment_analysis:
-              scrapedDataResponse.product.averageSentimentAnalysis,
+              scrapedProductFromBrowser.averageSentimentAnalysis,
             best_seller_ranks:
-              scrapedDataResponse.product.bestSellerRanks ?? null,
-            brand: scrapedDataResponse.product.brand ?? null,
+              scrapedProductFromBrowser.bestSellerRanks ?? null,
+            brand: scrapedProductFromBrowser.brand ?? null,
             business_target_for_collecting:
-              scrapedDataResponse.product.businessTargetForCollecting ?? null,
-            category: scrapedDataResponse.product.category ?? null,
+              scrapedProductFromBrowser.businessTargetForCollecting ?? null,
+            category: scrapedProductFromBrowser.category ?? null,
             delivery_location:
-              scrapedDataResponse.product.deliveryLocation ?? null,
-            histogram: scrapedDataResponse.product.histogram,
-            is_out_of_stock: scrapedDataResponse.product.isOutOfStock ?? null,
+              scrapedProductFromBrowser.deliveryLocation ?? null,
+            histogram: scrapedProductFromBrowser.histogram,
+            is_out_of_stock: scrapedProductFromBrowser.isOutOfStock ?? null,
             number_of_comments:
-              scrapedDataResponse.product.numberOfComments ?? null,
-            retailer: scrapedDataResponse.product.retailer ?? null,
+              scrapedProductFromBrowser.numberOfComments ?? null,
+            retailer: scrapedProductFromBrowser.retailer ?? null,
             sales_volume_last_month:
-              scrapedDataResponse.product.salesVolumeLastMonth ?? null,
+              scrapedProductFromBrowser.salesVolumeLastMonth ?? null,
           };
 
           console.log("\nBased inserted product data");
-          console.log(productData);
+          console.log(productInsertData);
 
-          let productId: number;
-
-          // Inserted products 
-          try {
-            const { data, error } = await supabase
-              .from("base_products")
-              .insert([productData as BaseProductInsert])
-              .select();
-
-            if (error) {
-              console.error("Error inserting product:", error.message);
-            } else {
-              console.info("Product inserted successfully:", data);
-              productId = data[0].id;
-            }
-          } catch (error) {}
-
-          // Inserted bulk comments
+          // Inserted a product
+          let newProductId: number = await this.productRepository.insertProduct(productInsertData as BaseProductInsert);
+      
+          // Inserted the bulk of comments
+          /**
+           * TODO: Check condition exist of comments
+           */
           if (scrapedDataResponse.comments.length > 0) {
-            const bulkCommentsInserts: BaseCommentInsert[] =
-              scrapedDataResponse.comments.map((comment) => ({
+            const scrapedCommentsFromBrowser =
+              scrapedDataResponse.comments as CommentItem[];
+            // Check bulk comment exists from database
+            const {
+              data: existingBulkCommentsFromDatabase,
+              error: fetchError,
+            } = await supabase
+              .from("comments")
+              .select("id, title, content, date")
+              .eq("product_id", newProductId);
+
+            if (fetchError) {
+              console.error(
+                "Error fetching existing comments:",
+                fetchError.message,
+              );
+            } else {
+              console.log(
+                "Hey Yuta, existing comments:",
+                existingBulkCommentsFromDatabase.length,
+              );
+            }
+
+            const existingGroupCommentsFromDatabaseAsSet = new Set(
+              existingBulkCommentsFromDatabase.map(
+                (comment) =>
+                  `${comment.title}-${comment.content}-${comment.date}`,
+              ),
+            );
+
+            const filteredNewInsertedCommentsFromSet: CommentItem[] =
+              scrapedCommentsFromBrowser.filter((comment) => {
+                const commentKey = `${comment.title}-${comment.content}-${comment.date}`;
+                return !existingGroupCommentsFromDatabaseAsSet.has(commentKey);
+              });
+
+            // Then: set id to the filtered list of comments that need to insert
+            const bulkCommentsForInsert: BaseCommentInsert[] =
+              filteredNewInsertedCommentsFromSet.map((comment) => ({
                 title: comment.title,
                 content: comment.content,
                 date: comment.date,
-                product_id: productId, // Adjust according to your schema
+                product_id: newProductId, // Adjust according to your schema
                 helpful_count: comment.helpfulCount,
                 rating: comment.rating,
                 verified_purchase: comment.isVerifiedPurchase,
@@ -147,11 +187,11 @@ export default class BaseProductService {
             try {
               const { data, error } = await supabase
                 .from("comments")
-                .insert(bulkCommentsInserts);
+                .insert(bulkCommentsForInsert);
               if (error) {
                 console.error("Error inserting comments:", error.message);
               } else {
-                console.log("\nSuccessfully inserted comments:", data);
+                console.log("\nSuccessfully inserted bulk of comments:", data);
               }
             } catch (error) {}
           }

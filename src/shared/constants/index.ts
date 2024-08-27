@@ -57,3 +57,7 @@ export const WORD_DICT: any = {
   "we'll": " will", 
   "didn't": "did not"
 } 
+
+export const RED = '\\x1b[31m';
+export const GREEN = '\\x1b[32m';
+export const RESET = '\\x1b[0m';

@@ -10,10 +10,7 @@ import {
   FilterProductAttributesFromUrl,
   filterComponentsOfPrice,
 } from "./filter";
-import {
-  analyzeSentiment,
-  analyzeEmotionByScore,
-} from "./analyze";
+import { analyzeSentiment, analyzeEmotionByScore } from "./analyze";
 import { setTimeout as delayPage } from "node:timers/promises";
 import {
   BaseProduct,
@@ -38,11 +35,7 @@ export async function scrapeAmazonProduct(
 
   // const browser = await puppeteer.launch({ headless: true });
   const browser = await puppeteer.launch({
-    headless: false,
-    defaultViewport: null,
-    args: [
-      "--start-fullscreen", // you can also use '--start-fullscreen'
-    ],
+    headless: Boolean(process.env.HEADLESS_MODE),
   });
   const page = await browser.newPage();
   await page.goto(url).catch(console.error);
@@ -98,493 +91,528 @@ export async function scrapeAmazonProduct(
   }
 
   await checkAndSolveNormalCaptcha();
-  // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-  await delayPage(2000);
 
   /**
-   * TODO: ============================================================= Step to sign in ============================================================= */
-  const signInButton = await page.$("a[data-nav-ref='nav_ya_signin']");
+   * TODO: ============================================================= [AUTHENTICATION] - check Captcha Audio verification if it requires ============================================================= */
+  // Function to check for the presence of the captcha
+  async function checkAndHandleCaptchaAudio() {
+    const captchaSelector =
+      "a.a-link-normal.cvf-widget-link-alternative-captcha.cvf-widget-btn-val.cvf-widget-link-disable-target.captcha_refresh_link";
 
-  if (signInButton) {
-    await signInButton.click();
-    await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+    try {
+      const captchaElement = await page.waitForSelector(captchaSelector, {
+        timeout: 5000, // Wait up to 5 seconds for the captcha to appear
+      });
 
-    await page.waitForSelector("#ap_email");
-    await page.type("#ap_email", String(process.env.AMAZON_ACCOUNT_EMAIL));
-    const continueButton = await page.$("#continue");
-    await continueButton.click();
+      if (captchaElement) {
+        console.log("Captcha detected, handling audio captcha...");
+        await captchaElement.click();
 
-    await page.waitForSelector("#ap_password");
-    await page.type(
-      "#ap_password",
-      String(process.env.AMAZON_ACCOUNT_PASSWORD),
-    );
-
-    const signInSubmitButton = await page.$("#signInSubmit");
-    await signInSubmitButton.click();
-
-    await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-
-    /**
-     * TODO: ============================================================= Step to check Captcha Audio verification if it requires ============================================================= */
-    // Function to check for the presence of the captcha
-    async function checkAndHandleCaptchaAudio() {
-      const captchaSelector =
-        "a.a-link-normal.cvf-widget-link-alternative-captcha.cvf-widget-btn-val.cvf-widget-link-disable-target.captcha_refresh_link";
-
-      try {
-        const captchaElement = await page.waitForSelector(captchaSelector, {
-          timeout: 5000, // Wait up to 5 seconds for the captcha to appear
+        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+        const audioUrl = await page.$eval("source[type='audio/ogg']", (el) =>
+          el.getAttribute("src"),
+        );
+        const client = new AssemblyAI({
+          apiKey: String(process.env.ASSEMBLY_AI_API_KEY),
         });
+        const data = {
+          audio_url: audioUrl,
+        };
+        const getTranscript = async () => {
+          const transcript = await client.transcripts.transcribe(data);
+          return transcript.text;
+        };
 
-        if (captchaElement) {
-          console.log("Captcha detected, handling audio captcha...");
-          await captchaElement.click();
+        const processedTranscript = await getTranscript();
+        const transcriptList = processedTranscript.split(" ");
+        const processedAudioCaptchaValue = transcriptList[
+          transcriptList.length - 1
+        ].replace(".", "");
 
+        console.log("Processed captcha value = ", processedAudioCaptchaValue);
+
+        await page.waitForSelector(
+          ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
+        );
+        await page.type(
+          ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
+          processedAudioCaptchaValue,
+        );
+
+        const continueCaptchaButton = await page.$(
+          ".a-button.a-button-span12.a-button-primary.cvf-widget-btn-captcha.cvf-widget-btn-verify-captcha",
+        );
+        if (continueCaptchaButton) {
+          await continueCaptchaButton.click();
           await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-          const audioUrl = await page.$eval("source[type='audio/ogg']", (el) =>
-            el.getAttribute("src"),
-          );
-          const client = new AssemblyAI({
-            apiKey: String(process.env.ASSEMBLY_AI_API_KEY),
-          });
-          const data = {
-            audio_url: audioUrl,
-          };
-          const getTranscript = async () => {
-            const transcript = await client.transcripts.transcribe(data);
-            return transcript.text;
-          };
-
-          const processedTranscript = await getTranscript();
-          const transcriptList = processedTranscript.split(" ");
-          const processedAudioCaptchaValue = transcriptList[
-            transcriptList.length - 1
-          ].replace(".", "");
-
-          console.log("Processed captcha value = ", processedAudioCaptchaValue);
-
-          await page.waitForSelector(
-            ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
-          );
-          await page.type(
-            ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
-            processedAudioCaptchaValue,
-          );
-
-          const continueCaptchaButton = await page.$(
-            ".a-button.a-button-span12.a-button-primary.cvf-widget-btn-captcha.cvf-widget-btn-verify-captcha",
-          );
-          if (continueCaptchaButton) {
-            await continueCaptchaButton.click();
-            await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-          } else {
-            throw new Error("Continue button for captcha not found.");
-          }
-        }
-      } catch (err) {
-        if (err.name === "TimeoutError") {
-          console.info("Captcha Audio not detected, continuing...");
-          // If captcha is not detected, proceed as normal
         } else {
-          console.error("Error handling captcha:", err.message);
-          // Handle other errors as needed, possibly retry or log them
+          throw new Error("Continue button for captcha not found.");
         }
       }
-    }
-
-    // Call the captcha check function after sign-in attempt
-    await checkAndHandleCaptchaAudio();
-
-    /**
-     * TODO: ============================================================= Scrape the main data of the products ============================================================= */
-    const asin = filterAsinFromUrl(
-      page.url(),
-      FilterProductAttributesFromUrl.ASIN,
-    );
-
-    const title = (
-      await page.$eval("#productTitle", (span) => span.textContent)
-    ).trim();
-
-    // Current price text
-    let currentPrice: string;
-    let currency: string;
-
-    try {
-      const priceText = (
-        await page.$eval(
-          ".a-price.aok-align-center.reinventPricePriceToPayMargin.priceToPay",
-          (el) => el.textContent,
-        )
-      ).trim();
-
-      if (priceText) {
-        currentPrice = priceText;
-        currency = filterComponentsOfPrice(currentPrice)[0] as string;
+    } catch (err) {
+      if (err.name === "TimeoutError") {
+        console.info("Captcha Audio not detected, continuing...");
+        // If captcha is not detected, proceed as normal
+      } else {
+        console.error("Error handling captcha:", err.message);
+        // Handle other errors as needed, possibly retry or log them
       }
-    } catch (error) {
-      console.error("Price element not found or unable to extract price:");
-      currentPrice = ""; // or set to null or some default value
-      currency = ""; // or set to a default value if needed
     }
+  }
 
-    // Original price
-    let originalPrice: string;
-    let originalPriceMetric: number;
+  // Call the captcha check function after sign-in attempt
+  await checkAndHandleCaptchaAudio();
 
+  async function attemptSignIn() {
     try {
-      const originalPriceText = await page.$eval(
-        "span.a-size-small.a-color-secondary.aok-align-center.basisPrice span.a-offscreen",
-        (el) => el.textContent.trim(),
-      );
+      await page.waitForSelector("a[data-nav-ref='nav_ya_signin']", {
+        timeout: 10000, // wait up to 10 seconds
+      });
+      const signInButton = await page.$("a[data-nav-ref='nav_ya_signin']");
 
-      if (originalPriceText) {
-        originalPrice = originalPriceText;
-        originalPriceMetric = Number(originalPrice.replace("$", ""));
+      if (signInButton) {
+        await signInButton.click().catch(console.error);
+        await page
+          .waitForNavigation({ waitUntil: "domcontentloaded" })
+          .catch(console.error);
+
+        await page.waitForSelector("#ap_email").catch(console.error);
+        await page
+          .type("#ap_email", String(process.env.AMAZON_ACCOUNT_EMAIL))
+          .catch(console.error);
+        const continueButton = await page.$("#continue").catch(console.error);
+        if (continueButton) {
+          await continueButton.click().catch(console.error);
+        } else {
+          console.error("Continue button not found");
+        }
+
+        await page.waitForSelector("#ap_password").catch(console.error);
+        await page
+          .type("#ap_password", String(process.env.AMAZON_ACCOUNT_PASSWORD))
+          .catch(console.error);
+
+        const signInSubmitButton = await page
+          .$("#signInSubmit")
+          .catch(console.error);
+        if (signInSubmitButton) {
+          await signInSubmitButton.click().catch(console.error);
+          await page
+            .waitForNavigation({ waitUntil: "domcontentloaded" })
+            .catch(console.error);
+        } else {
+          console.error("Sign-in submit button not found");
+        }
+
+        // Call the captcha check function after sign-in attempt
+        await checkAndHandleCaptchaAudio();
+      } else {
+        console.error("Sign-in button not found");
       }
-    } catch (error) {
-      console.warn(
-        "Price element not found or unable to extract price:",
-        error,
-      );
-      originalPrice = "";
-      originalPriceMetric = 0;
+    } catch (err) {
+      console.error("Error during sign-in attempt:", err.message);
     }
+  }
 
-    // Average rating of product
-    const averageRatingText = await page.$eval(
-      ".a-icon-alt",
-      (el) => el.textContent,
-    );
+  // Initial normal captcha check
+  await checkAndSolveNormalCaptcha().catch(console.error);
 
-    const filtratedAverageRatingMetric = Number(
-      averageRatingText.split(" ")[0],
-    );
+  // Attempt sign-in with retries
+  let signInAttempts = 3;
+  let signedIn = false;
 
-    // Delivery location
-    const deliveryLocation = (
+  while (signInAttempts > 0 && !signedIn) {
+    try {
+      await attemptSignIn();
+      signedIn = true;
+    } catch (error) {
+      console.error(
+        `Sign-in attempt failed: ${error.message}. Retries left: ${signInAttempts - 1}`,
+      );
+      signInAttempts--;
+      if (signInAttempts === 0) {
+        throw new Error("Failed to sign in after multiple attempts.");
+      }
+    }
+  }
+
+  /**
+   * TODO: ============================================================= Scrape the main data of the products ============================================================= */
+  const asin = filterAsinFromUrl(
+    page.url(),
+    FilterProductAttributesFromUrl.ASIN,
+  );
+
+  const title = (
+    await page.$eval("#productTitle", (span) => span.textContent)
+  ).trim();
+
+  // Current price text
+  let currentPrice: string;
+  let currency: string;
+
+  try {
+    const priceText = (
       await page.$eval(
-        "span.nav-line-2.nav-progressive-content",
+        ".a-price.aok-align-center.reinventPricePriceToPayMargin.priceToPay",
         (el) => el.textContent,
       )
     ).trim();
 
-    const retailerElement = await page.$(
-      "span.a-size-small.offer-display-feature-text-message",
+    if (priceText) {
+      currentPrice = priceText;
+      currency = filterComponentsOfPrice(currentPrice)[0] as string;
+    }
+  } catch (error) {
+    console.error("Price element not found or unable to extract price:");
+    currentPrice = ""; // or set to null or some default value
+    currency = ""; // or set to a default value if needed
+  }
+
+  // Original price
+  let originalPrice: string;
+  let originalPriceMetric: number;
+
+  try {
+    const originalPriceText = await page.$eval(
+      "span.a-size-small.a-color-secondary.aok-align-center.basisPrice span.a-offscreen",
+      (el) => el.textContent.trim(),
     );
-    let retailerName: string | null = null;
 
-    if (retailerElement) {
-      retailerName = await page.evaluate(
-        (el) => el.textContent.trim(),
-        retailerElement,
-      );
-    } else {
-      console.warn("Retailer name element not found.");
-      retailerName = "Not show";
+    if (originalPriceText) {
+      originalPrice = originalPriceText;
+      originalPriceMetric = Number(originalPrice.replace("$", ""));
     }
+  } catch (error) {
+    console.warn("Price element not found or unable to extract price:", error);
+    originalPrice = "";
+    originalPriceMetric = 0;
+  }
 
-    // Filtrated sales volume last month
-    let filtratedSalesVolumeLastMonth: string | null;
-    try {
-      const salesVolumeLastMonthText = await (
-        await page.$eval(
-          "span.a-size-small.social-proofing-faceout-title-text",
-          (el) => el.textContent,
-        )
-      ).trim();
+  // Average rating of product
+  const averageRatingText = await page.$eval(
+    ".a-icon-alt",
+    (el) => el.textContent,
+  );
 
-      if (salesVolumeLastMonthText) {
-        filtratedSalesVolumeLastMonth = salesVolumeLastMonthText;
-      }
-    } catch (error) {
-      filtratedSalesVolumeLastMonth = "Not show";
-    }
-    const histogramTable = await page.$$("#histogramTable > li");
-    // console.log("Length of histogram table = ", histogramTable.length);
-    let historamItemMapper = [];
+  const filtratedAverageRatingMetric = Number(averageRatingText.split(" ")[0]);
 
-    for (let i = 0; i < histogramTable.length; i++) {
-      const ratingItem = await histogramTable[i].$eval(
-        "span.a-list-item",
+  // Delivery location
+  const deliveryLocation = (
+    await page.$eval(
+      "span.nav-line-2.nav-progressive-content",
+      (el) => el.textContent,
+    )
+  ).trim();
+
+  const retailerElement = await page.$(
+    "span.a-size-small.offer-display-feature-text-message",
+  );
+  let retailerName: string | null = null;
+
+  if (retailerElement) {
+    retailerName = await page.evaluate(
+      (el) => el.textContent.trim(),
+      retailerElement,
+    );
+  } else {
+    console.warn("Retailer name element not found.");
+    retailerName = "Not show";
+  }
+
+  // Filtrated sales volume last month
+  let filtratedSalesVolumeLastMonth: string | null;
+  try {
+    const salesVolumeLastMonthText = await (
+      await page.$eval(
+        "span.a-size-small.social-proofing-faceout-title-text",
         (el) => el.textContent,
-      );
-      historamItemMapper.push(ratingItem);
+      )
+    ).trim();
+
+    if (salesVolumeLastMonthText) {
+      filtratedSalesVolumeLastMonth = salesVolumeLastMonthText;
     }
+  } catch (error) {
+    filtratedSalesVolumeLastMonth = "Not show";
+  }
+  const histogramTable = await page.$$("#histogramTable > li");
+  // console.log("Length of histogram table = ", histogramTable.length);
+  let historamItemMapper = [];
 
-    const rawRatingStars: string = historamItemMapper[0];
-    const filtratedHistogramItems = filterStarRatings(rawRatingStars as string);
-
-    const selectedOption = await page.evaluate(() => {
-      const selectElement = document.querySelector(
-        "select.nav-search-dropdown.searchSelect.nav-progressive-attrubute.nav-progressive-search-dropdown",
-      );
-      const selectedOptionElement = selectElement.querySelector(
-        "option[selected = 'selected']",
-      );
-      return selectedOptionElement.textContent.trim(); // or use `.value` to get the value attribute
-    });
-
-    // Out of stock
-    let isOutOfStock: boolean | null;
-
-    try {
-      const outOfStockText = await page.$eval("div#availability > span", (el) =>
-        el.textContent.trim().toLowerCase(),
-      );
-      isOutOfStock = !outOfStockText.includes("in stock");
-    } catch (error) {
-      console.warn(
-        "Out of stock element not found or unable to determine stock status:",
-        error,
-      );
-      isOutOfStock = false;
-    }
-
-    console.log("Is Out of Stock:", isOutOfStock);
-    // console.log(`\nHistogram Mapper have ${historamItemMapper.length} result`)
-    console.log(`Metric of average rating = ${filtratedAverageRatingMetric}`);
-    console.log("Original price = ", originalPrice);
-
-    // Percentage selling
-    let percentage: string | null;
-
-    let categoryContainerSelectorList = await page.$$(
-      "#wayfinding-breadcrumbs_feature_div ul > li",
+  for (let i = 0; i < histogramTable.length; i++) {
+    const ratingItem = await histogramTable[i].$eval(
+      "span.a-list-item",
+      (el) => el.textContent,
     );
+    historamItemMapper.push(ratingItem);
+  }
 
-    let filtratedCategories: string[] = [];
+  const rawRatingStars: string = historamItemMapper[0];
+  const filtratedHistogramItems = filterStarRatings(rawRatingStars as string);
 
-    // Process the data in selector list
-    if (categoryContainerSelectorList.length > 0) {
-      for (let i = 0; i < categoryContainerSelectorList.length; i++) {
-        let categoryText = await categoryContainerSelectorList[i].$eval(
-          "span",
-          (el) => el.textContent.trim(),
-        );
-        filtratedCategories.push(categoryText);
-      }
-    }
-
-    // Remove the special character
-    filtratedCategories = filtratedCategories.filter((data) => data !== "›");
-
-    // Setup the 2N rule
-    const totalCategoryNode: number = filtratedCategories.length;
-    const STAR_RULE = 1;
-    const END_RULE = 2 * totalCategoryNode;
-
-    // Build the tree of category
-    let categoryHierarchy: CategoryNode = buildCategoryHierarchy(
-      filtratedCategories,
-      STAR_RULE,
-      END_RULE,
+  const selectedOption = await page.evaluate(() => {
+    const selectElement = document.querySelector(
+      "select.nav-search-dropdown.searchSelect.nav-progressive-attrubute.nav-progressive-search-dropdown",
     );
-    categoryHierarchy.displayHierarchyAsJSON();
+    const selectedOptionElement = selectElement.querySelector(
+      "option[selected = 'selected']",
+    );
+    return selectedOptionElement.textContent.trim(); // or use `.value` to get the value attribute
+  });
 
-    try {
-      const percentageSelector = await page.$(
+  // Out of stock
+  let isOutOfStock: boolean | null;
+
+  try {
+    const outOfStockText = await page.$eval("div#availability > span", (el) =>
+      el.textContent.trim().toLowerCase(),
+    );
+    isOutOfStock = !outOfStockText.includes("in stock");
+  } catch (error) {
+    console.warn(
+      "Out of stock element not found or unable to determine stock status:",
+      error,
+    );
+    isOutOfStock = false;
+  }
+
+  console.log("Is Out of Stock:", isOutOfStock);
+  // console.log(`\nHistogram Mapper have ${historamItemMapper.length} result`)
+  console.log(`Metric of average rating = ${filtratedAverageRatingMetric}`);
+  console.log("Original price = ", originalPrice);
+
+  let categoryContainerSelectorList = await page.$$(
+    "#wayfinding-breadcrumbs_feature_div ul > li",
+  );
+
+  /** 
+ * TODO: ============================================================= Process/Build the category hirarchy =============================================================
+
+ */
+  let filtratedCategories: string[] = [];
+
+  // Process the data in selector list
+  if (categoryContainerSelectorList.length > 0) {
+    for (let i = 0; i < categoryContainerSelectorList.length; i++) {
+      let categoryText = await categoryContainerSelectorList[i].$eval(
+        "span",
+        (el) => el.textContent.trim(),
+      );
+      filtratedCategories.push(categoryText);
+    }
+  }
+
+  // Remove the special character
+  filtratedCategories = filtratedCategories.filter((data) => data !== "›");
+
+  // Setup the 2N rule
+  const totalCategoryNode: number = filtratedCategories.length;
+  const STAR_RULE = 1;
+  const END_RULE = 2 * totalCategoryNode;
+
+  // Build the tree of category
+  let categoryHierarchy: CategoryNode = buildCategoryHierarchy(
+    filtratedCategories,
+    STAR_RULE,
+    END_RULE,
+  );
+  categoryHierarchy.displayHierarchyAsJSON();
+
+  // Percentage selling
+  let percentage: string | null;
+
+  try {
+    const percentageSelector = await page.$(
+      "span.a-size-large.a-color-price.savingPriceOverride.aok-align-center.reinventPriceSavingsPercentageMargin.savingsPercentage",
+    );
+    if (percentageSelector) {
+      const percentageText = await page.$eval(
         "span.a-size-large.a-color-price.savingPriceOverride.aok-align-center.reinventPriceSavingsPercentageMargin.savingsPercentage",
+        (el) => el.textContent.trim().toLowerCase(),
       );
-      if (percentageSelector) {
-        const percentageText = await page.$eval(
-          "span.a-size-large.a-color-price.savingPriceOverride.aok-align-center.reinventPriceSavingsPercentageMargin.savingsPercentage",
-          (el) => el.textContent.trim().toLowerCase(),
-        );
-        percentage = percentageText;
-      }
-    } catch (error) {
-      console.warn("\nPercentage not displayed");
+      percentage = percentageText;
     }
+  } catch (error) {
+    console.warn("\nPercentage not displayed");
+  }
 
-    const queryProductDetailsListAsTable = await page.$$(
-      "table#productDetails_detailBullets_sections1 tbody tr",
+  const queryProductDetailsListAsTable = await page.$$(
+    "table#productDetails_detailBullets_sections1 tbody tr",
+  );
+  let bestSellerRankJson = { heading: "", attributeVal: "" };
+
+  for (let i = 0; i < queryProductDetailsListAsTable.length; i++) {
+    const heading = await queryProductDetailsListAsTable[i].$eval(
+      "th.a-color-secondary.a-size-base.prodDetSectionEntry",
+      (el) => el.textContent.trim(),
     );
-    let bestSellerRankJson = { heading: "", attributeVal: "" };
+    const attributeVal = await queryProductDetailsListAsTable[i].$eval(
+      "td",
+      (el) => el.textContent.trim(),
+    );
 
-    for (let i = 0; i < queryProductDetailsListAsTable.length; i++) {
-      const heading = await queryProductDetailsListAsTable[i].$eval(
-        "th.a-color-secondary.a-size-base.prodDetSectionEntry",
-        (el) => el.textContent.trim(),
-      );
-      const attributeVal = await queryProductDetailsListAsTable[i].$eval(
-        "td",
-        (el) => el.textContent.trim(),
-      );
-
-      if (heading === "Best Sellers Rank") {
-        bestSellerRankJson = {
-          heading,
-          attributeVal,
-        };
-      }
+    if (heading === "Best Sellers Rank") {
+      bestSellerRankJson = {
+        heading,
+        attributeVal,
+      };
     }
+  }
 
-    console.log("\nBest Seller Rank");
-    console.log(bestSellerRankJson);
+  console.log("\nBest Seller Rank");
+  console.log(bestSellerRankJson);
 
-    const bestSellerRankAttributeArr: string[] =
-      bestSellerRankJson["attributeVal"].split("   ");
+  const bestSellerRankAttributeArr: string[] =
+    bestSellerRankJson["attributeVal"].split("   ");
 
-    console.log("\nBest Seller Rank Array Attribute Values");
-    console.log(bestSellerRankAttributeArr);
+  console.log("\nBest Seller Rank Array Attribute Values");
+  console.log(bestSellerRankAttributeArr);
 
-    const image = (await page.$eval("img#landingImage", (el) =>
-      el.getAttribute("src"),
-    )) as string;
+  const image = (await page.$eval("img#landingImage", (el) =>
+    el.getAttribute("src"),
+  )) as string;
 
-    /**
-     * ! This is the completed product but still miss these fields (numberOfComments, averageSentimentAnalysis) */
-    const scrapedProduct: BaseProduct = {
-      asin,
-      title,
-      price: {
-        amount: filterComponentsOfPrice(currentPrice)[1] as number,
+  /**
+   * ! This is the completed product but still miss these fields (numberOfComments, averageSentimentAnalysis) */
+  const scrapedProduct: BaseProduct = {
+    asin,
+    title,
+    price: {
+      amount: filterComponentsOfPrice(currentPrice)[1] as number,
+      currency,
+      displayAmount: String(currentPrice),
+      currentPrice: filterComponentsOfPrice(currentPrice)[1] as number,
+      originalPrice: originalPriceMetric,
+      highestPrice: originalPriceMetric,
+      lowestPrice: filterComponentsOfPrice(currentPrice)[1] as number,
+      savings: {
+        percentage: percentage !== undefined ? percentage : "",
         currency,
         displayAmount: String(currentPrice),
-        currentPrice: filterComponentsOfPrice(currentPrice)[1] as number,
-        originalPrice: originalPriceMetric,
-        highestPrice: originalPriceMetric,
-        lowestPrice: filterComponentsOfPrice(currentPrice)[1] as number,
-        savings: {
-          percentage: percentage !== undefined ? percentage : "",
-          currency,
-          displayAmount: String(currentPrice),
-          amount: filterComponentsOfPrice(currentPrice)[1] as number,
-        },
+        amount: filterComponentsOfPrice(currentPrice)[1] as number,
       },
-      histogram: filtratedHistogramItems,
-      averageRating: filtratedAverageRatingMetric,
-      salesVolumeLastMonth: filtratedSalesVolumeLastMonth,
-      deliveryLocation,
-      retailer: retailerName,
-      businessTargetForCollecting: "amazon",
-      url: String(page.url()),
-      bestSellerRanks: bestSellerRankAttributeArr,
-      isOutOfStock,
-      brand: "Amazon",
-      image,
-    };
+    },
+    histogram: filtratedHistogramItems,
+    averageRating: filtratedAverageRatingMetric,
+    salesVolumeLastMonth: filtratedSalesVolumeLastMonth,
+    deliveryLocation,
+    retailer: retailerName,
+    businessTargetForCollecting: "amazon",
+    url: String(page.url()),
+    bestSellerRanks: bestSellerRankAttributeArr,
+    isOutOfStock,
+    brand: "Amazon",
+    image,
+  };
 
-    // After format asin, title, price...., navigate to comment page
-    // Wait for the review button to appear and be clickable
-    const reviewButton = await page.waitForSelector(
-      ".a-link-emphasis.a-text-bold",
-      { timeout: 5000 },
-    );
+  // After format asin, title, price...., navigate to comment page
+  // Wait for the review button to appear and be clickable
+  const reviewButton = await page.waitForSelector(
+    ".a-link-emphasis.a-text-bold",
+    { timeout: 5000 },
+  );
 
-    if (reviewButton) {
-      try {
-        await reviewButton.click();
-        await page.waitForNavigation({
-          waitUntil: "domcontentloaded",
-          timeout: 10000,
-        }); // Timeout after 10 seconds
+  if (reviewButton) {
+    try {
+      await reviewButton.click();
+      await page.waitForNavigation({
+        waitUntil: "domcontentloaded",
+        timeout: 10000,
+      }); // Timeout after 10 seconds
 
-        const comment_url = `${page.url()}&sortBy=recent&pageNumber=1`;
-        console.log("After navigate = ", comment_url);
+      const comment_url = `${page.url()}&sortBy=recent&pageNumber=1`;
+      console.log("After navigate = ", comment_url);
 
-        // Implement retry mechanism for page navigation
-        let retries = 3;
-        let success = false;
+      // Implement retry mechanism for page navigation
+      let retries = 3;
+      let success = false;
 
-        while (retries > 0 && !success) {
-          try {
-            await page.goto(comment_url, {
-              waitUntil: "domcontentloaded",
-              timeout: 10000,
-            }); // Timeout after 10 seconds
-            success = true; // If navigation succeeds, break out of the loop
-          } catch (error) {
-            console.error(
-              `Navigation to ${comment_url} failed: ${error.message}. Retries left: ${retries - 1}`,
+      while (retries > 0 && !success) {
+        try {
+          await page.goto(comment_url, {
+            waitUntil: "domcontentloaded",
+            timeout: 10000,
+          }); // Timeout after 10 seconds
+          success = true; // If navigation succeeds, break out of the loop
+        } catch (error) {
+          console.error(
+            `Navigation to ${comment_url} failed: ${error.message}. Retries left: ${retries - 1}`,
+          );
+          retries--;
+          if (retries === 0) {
+            throw new Error(
+              "Failed to navigate to comments after multiple attempts.",
             );
-            retries--;
-            if (retries === 0) {
-              throw new Error(
-                "Failed to navigate to comments after multiple attempts.",
-              );
-            }
           }
         }
-
-        /**
-         * TODO: ============================================================= Steps to scrape the comments ============================================================= */
-        const collectedComments: CommentItem[] =
-          await scrapeCommentsRecursively(page);
-        console.log("Total collected comments:", collectedComments.length);
-
-        scrapedProduct.numberOfComments = collectedComments.length;
-
-        // Calculate the average of sentiment comment
-        if (collectedComments.length > 0) {
-          const totalScore = collectedComments.reduce(
-            (sum, data: CommentItem) => {
-              const score = data.sentiment.score;
-              return (
-                sum + (typeof score === "number" && !isNaN(score) ? score : 0)
-              );
-            },
-            0,
-          );
-
-          const listOfScoreFromComments = collectedComments.map(
-            (comment: CommentItem) => comment.sentiment.score,
-          );
-
-          // console.log(
-          //   `\nList score of comments ${listOfScoreFromComments.length}`,
-          // );
-          // console.log(listOfScoreFromComments);
-
-          // Calculate the average sentiment score
-          const averageSentimentScoreOfScrapedProduct: number = Number(
-            (totalScore / collectedComments.length).toFixed(1),
-          );
-
-          // Analyze the emotion based on the average sentiment score
-          const averageSentimentEmotionOfScrapedProduct: string =
-            analyzeEmotionByScore(averageSentimentScoreOfScrapedProduct);
-
-          // Ensure that scrapedProduct.averageSentimentAnalysis is properly initialized
-          scrapedProduct.averageSentimentAnalysis = {
-            score: averageSentimentScoreOfScrapedProduct,
-            emotion: averageSentimentEmotionOfScrapedProduct,
-          };
-        } else {
-          // Handle the case where there are no comments
-          console.error("No comments found in collectedComments.");
-        }
-
-        /**
-         * * Product's data structure is completed
-         */
-        console.log("\nProduct complete scraping");
-        console.log(scrapedProduct);
-
-        return {
-          product: scrapedProduct,
-          comments: collectedComments,
-          category: categoryHierarchy,
-        } as AmazonScrapedResponse;
-      } catch (error) {
-        console.error("Error in scrapeAmazonProduct:", error.message);
-        return null; // Return null or handle the error appropriately
-      } finally {
-        if (browser) {
-          await browser.close(); // Ensure browser is closed even if an error occurs
-        }
       }
-    } else {
-      console.error(
-        "Review button not found, cannot proceed with comment scraping.",
-      );
+
+      /**
+       * TODO: ============================================================= Steps to scrape the comments ============================================================= */
+      const collectedComments: CommentItem[] =
+        await scrapeCommentsRecursively(page);
+      console.log("Total collected comments:", collectedComments.length);
+
+      scrapedProduct.numberOfComments = collectedComments.length;
+
+      // Calculate the average of sentiment comment
+      if (collectedComments.length > 0) {
+        const totalScore = collectedComments.reduce(
+          (sum, data: CommentItem) => {
+            const score = data.sentiment.score;
+            return (
+              sum + (typeof score === "number" && !isNaN(score) ? score : 0)
+            );
+          },
+          0,
+        );
+
+        const listOfScoreFromComments = collectedComments.map(
+          (comment: CommentItem) => comment.sentiment.score,
+        );
+
+        // Calculate the average sentiment score
+        const averageSentimentScoreOfScrapedProduct: number = Number(
+          (totalScore / collectedComments.length).toFixed(1),
+        );
+
+        // Analyze the emotion based on the average sentiment score
+        const averageSentimentEmotionOfScrapedProduct: string =
+          analyzeEmotionByScore(averageSentimentScoreOfScrapedProduct);
+
+        // Ensure that scrapedProduct.averageSentimentAnalysis is properly initialized
+        scrapedProduct.averageSentimentAnalysis = {
+          score: averageSentimentScoreOfScrapedProduct,
+          emotion: averageSentimentEmotionOfScrapedProduct,
+        };
+      } else {
+        // Handle the case where there are no comments
+        console.error("No comments found in collectedComments.");
+      }
+
+      /**
+       * * Amazon's scraped data structure is completed
+       */
+      return {
+        product: scrapedProduct,
+        comments: collectedComments,
+        category: categoryHierarchy,
+      } as AmazonScrapedResponse;
+    } catch (error) {
+      console.error("Error in scrapeAmazonProduct:", error.message);
+      return null; // Return null or handle the error appropriately
+    } finally {
+      if (browser) {
+        await browser.close(); // Ensure browser is closed even if an error occurs
+      }
     }
-    // https://www.amazon.com/Tanisa-Organic-Spring-Paper-Wrapper/product-reviews/B07KXPKRNK/ref=cm_cr_arp_d_viewpnt_lft?ie=UTF8&reviewerType=all_reviews&filterByStar=all_stars&pageNumber=1
   } else {
-    console.error("Sign-in button not found");
+    console.error(
+      "Review button not found, cannot proceed with comment scraping.",
+    );
   }
+  // https://www.amazon.com/Tanisa-Organic-Spring-Paper-Wrapper/product-reviews/B07KXPKRNK/ref=cm_cr_arp_d_viewpnt_lft?ie=UTF8&reviewerType=all_reviews&filterByStar=all_stars&pageNumber=1
 }
 
 /**
