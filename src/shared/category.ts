@@ -75,7 +75,8 @@ export async function checkAndInsertCategory(
   catNode: CategoryNode,
   parentId: number | null = null,
 ): Promise<number> {
-  const { data, error } = await supabase
+  try {
+    const { data, error } = await supabase
     .from("category")
     .select("id")
     .eq("name", catNode.name)
@@ -98,6 +99,10 @@ export async function checkAndInsertCategory(
   }
 
   return data.id;
+  } catch (error) {
+    console.error("Error in checkAndInsertCategory:", error.message);
+    throw error;
+  }
 }
 
 

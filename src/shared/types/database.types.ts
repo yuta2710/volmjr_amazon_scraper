@@ -18,7 +18,6 @@ export type Database = {
           business_target_for_collecting: string | null
           category: number | null
           delivery_location: string | null
-          description: string | null
           histogram: Json
           id: number
           image: string | null
@@ -38,7 +37,6 @@ export type Database = {
           business_target_for_collecting?: string | null
           category?: number | null
           delivery_location?: string | null
-          description?: string | null
           histogram: Json
           id?: number
           image?: string | null
@@ -58,7 +56,6 @@ export type Database = {
           business_target_for_collecting?: string | null
           category?: number | null
           delivery_location?: string | null
-          description?: string | null
           histogram?: Json
           id?: number
           image?: string | null
@@ -116,11 +113,10 @@ export type Database = {
         Row: {
           content: string
           date: string
-          helpful_count: number
+          helpful_count: string
           id: number
           location: string
-          next_page: string
-          product: Json
+          product_id: number | null
           rating: string
           sentiment: Json
           title: string
@@ -130,11 +126,10 @@ export type Database = {
         Insert: {
           content: string
           date: string
-          helpful_count: number
+          helpful_count: string
           id?: number
           location: string
-          next_page: string
-          product: Json
+          product_id?: number | null
           rating: string
           sentiment: Json
           title: string
@@ -144,119 +139,25 @@ export type Database = {
         Update: {
           content?: string
           date?: string
-          helpful_count?: number
+          helpful_count?: string
           id?: number
           location?: string
-          next_page?: string
-          product?: Json
+          product_id?: number | null
           rating?: string
           sentiment?: Json
           title?: string
           url?: string
           verified_purchase?: boolean
         }
-        Relationships: []
-      }
-      products: {
-        Row: {
-          asin: string
-          availability: string | null
-          best_seller_ranks: string | null
-          category: string | null
-          currency: string | null
-          current_price: number | null
-          discount_metric: string | null
-          discount_price: number | null
-          highest_price: number | null
-          id: number
-          is_amazon_choice: boolean | null
-          link: string | null
-          lowest_price: number | null
-          original_price: number | null
-          past: string | null
-          rating_count: number | null
-          retailer: string | null
-          seller_id: number | null
-          stars: number | null
-          title: string
-        }
-        Insert: {
-          asin: string
-          availability?: string | null
-          best_seller_ranks?: string | null
-          category?: string | null
-          currency?: string | null
-          current_price?: number | null
-          discount_metric?: string | null
-          discount_price?: number | null
-          highest_price?: number | null
-          id?: number
-          is_amazon_choice?: boolean | null
-          link?: string | null
-          lowest_price?: number | null
-          original_price?: number | null
-          past?: string | null
-          rating_count?: number | null
-          retailer?: string | null
-          seller_id?: number | null
-          stars?: number | null
-          title: string
-        }
-        Update: {
-          asin?: string
-          availability?: string | null
-          best_seller_ranks?: string | null
-          category?: string | null
-          currency?: string | null
-          current_price?: number | null
-          discount_metric?: string | null
-          discount_price?: number | null
-          highest_price?: number | null
-          id?: number
-          is_amazon_choice?: boolean | null
-          link?: string | null
-          lowest_price?: number | null
-          original_price?: number | null
-          past?: string | null
-          rating_count?: number | null
-          retailer?: string | null
-          seller_id?: number | null
-          stars?: number | null
-          title?: string
-        }
         Relationships: [
           {
-            foreignKeyName: "products_seller_id_fkey"
-            columns: ["seller_id"]
+            foreignKeyName: "comments_product_id_fkey"
+            columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: "sellers"
+            referencedRelation: "base_products"
             referencedColumns: ["id"]
           },
         ]
-      }
-      sellers: {
-        Row: {
-          id: number
-          name: string
-          profile_url: string | null
-          rating: number | null
-          rating_count: number | null
-        }
-        Insert: {
-          id?: number
-          name: string
-          profile_url?: string | null
-          rating?: number | null
-          rating_count?: number | null
-        }
-        Update: {
-          id?: number
-          name?: string
-          profile_url?: string | null
-          rating?: number | null
-          rating_count?: number | null
-        }
-        Relationships: []
       }
     }
     Views: {

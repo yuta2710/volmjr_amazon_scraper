@@ -8,7 +8,7 @@ const supabaseKey = "your-supabase-key"; // Replace with your actual Supabase ke
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Define the insertProduct function
-async function insertProduct(product: TablesInsert<"products">) {
+async function insertProduct(product: TablesInsert<"base_products">) {
   const { data, error } = await supabase.from("products").insert([product]);
 
   // The reason for using [product] instead of just product in the insert function is because the Supabase insert method expects an array of objects as its argument. This allows you to insert multiple records at once in a single operation.
@@ -26,14 +26,14 @@ async function insertProduct(product: TablesInsert<"products">) {
 }
 
 // Example usage of insertProduct
-const newProduct: TablesInsert<"products"> = {
-  asin: "B08T5Q8K36",
-  title: "Sample Product Title",
-  current_price: 29.99,
-  availability: "In Stock",
-  category: "Electronics",
-  retailer: "Sample Retailer",
-  // Add any other fields as necessary, or leave them out if they are nullable
-};
+// const newProduct: TablesInsert<"base_products"> = {
+//   asin: "B08T5Q8K36",
+//   title: "Sample Product Title",
+//   current_price: 29.99,
+//   availability: "In Stock",
+//   category: "",
+//   retailer: "Sample Retailer",
+//   // Add any other fields as necessary, or leave them out if they are nullable
+// };
 
-insertProduct(newProduct);
+// insertProduct(newProduct);

@@ -26,28 +26,47 @@ CREATE TABLE base_products (
     title TEXT NOT NULL,
 
     -- Price JSONB with constraints
+    -- price JSONB NOT NULL CHECK (
+    --     price ? 'amount' AND
+    --     price ? 'currency' AND
+    --     price ? 'displayAmount' AND
+    --     price ? 'currentPrice' AND
+    --     price ? 'originalPrice' AND
+    --     price ? 'highestPrice' AND
+    --     price ? 'lowestPrice' AND
+    --     price ? 'savings' AND
+    --     jsonb_typeof(price->'amount') = 'number' AND
+    --     jsonb_typeof(price->'currency') = 'string' AND
+    --     jsonb_typeof(price->'displayAmount') = 'string' AND
+    --     jsonb_typeof(price->'currentPrice') = 'number' AND
+    --     jsonb_typeof(price->'originalPrice') = 'number' AND
+    --     jsonb_typeof(price->'highestPrice') = 'number' AND
+    --     jsonb_typeof(price->'lowestPrice') = 'number' AND
+    --     jsonb_typeof(price->'savings') = 'object' AND
+    --     jsonb_typeof(price->'savings'->'amount') = 'number' AND
+    --     jsonb_typeof(price->'savings'->'currency') = 'string' AND
+    --     jsonb_typeof(price->'savings'->'displayAmount') = 'string' AND
+    --     jsonb_typeof(price->'savings'->'percentage') = 'string' AND
+    --     validate_percentage(price->'savings'->>'percentage')
+    -- ),
     price JSONB NOT NULL CHECK (
-        price ? 'amount' AND
-        price ? 'currency' AND
-        price ? 'displayAmount' AND
-        price ? 'currentPrice' AND
-        price ? 'originalPrice' AND
-        price ? 'highestPrice' AND
-        price ? 'lowestPrice' AND
-        price ? 'savings' AND
-        jsonb_typeof(price->'amount') = 'number' AND
-        jsonb_typeof(price->'currency') = 'string' AND
-        jsonb_typeof(price->'displayAmount') = 'string' AND
-        jsonb_typeof(price->'currentPrice') = 'number' AND
-        jsonb_typeof(price->'originalPrice') = 'number' AND
-        jsonb_typeof(price->'highestPrice') = 'number' AND
-        jsonb_typeof(price->'lowestPrice') = 'number' AND
-        jsonb_typeof(price->'savings') = 'object' AND
-        jsonb_typeof(price->'savings'->'amount') = 'number' AND
-        jsonb_typeof(price->'savings'->'currency') = 'string' AND
-        jsonb_typeof(price->'savings'->'displayAmount') = 'string' AND
-        jsonb_typeof(price->'savings'->'percentage') = 'string' AND
-        validate_percentage(price->'savings'->>'percentage')
+      (price ? 'amount' IS FALSE OR jsonb_typeof(price->'amount') = 'number') AND
+      (price ? 'currency' IS FALSE OR jsonb_typeof(price->'currency') = 'string') AND
+      (price ? 'displayAmount' IS FALSE OR jsonb_typeof(price->'displayAmount') = 'string') AND
+      (price ? 'currentPrice' IS FALSE OR jsonb_typeof(price->'currentPrice') = 'number') AND
+      (price ? 'originalPrice' IS FALSE OR jsonb_typeof(price->'originalPrice') = 'number') AND
+      (price ? 'highestPrice' IS FALSE OR jsonb_typeof(price->'highestPrice') = 'number') AND
+      (price ? 'lowestPrice' IS FALSE OR jsonb_typeof(price->'lowestPrice') = 'number') AND
+      (price ? 'savings' IS FALSE OR (
+          jsonb_typeof(price->'savings') = 'object' AND
+          (price->'savings' ? 'amount' IS FALSE OR jsonb_typeof(price->'savings'->'amount') = 'number') AND
+          (price->'savings' ? 'currency' IS FALSE OR jsonb_typeof(price->'savings'->'currency') = 'string') AND
+          (price->'savings' ? 'displayAmount' IS FALSE OR jsonb_typeof(price->'savings'->'displayAmount') = 'string') AND
+          (price->'savings' ? 'percentage' IS FALSE OR 
+              (jsonb_typeof(price->'savings'->'percentage') = 'string' AND 
+              (price->'savings'->>'percentage' = '' OR validate_percentage(price->'savings'->>'percentage')))
+          )
+      ))
     ),
 
     -- Histogram JSONB with constraints
@@ -107,8 +126,8 @@ CREATE TABLE comments (
     verified_purchase BOOLEAN NOT NULL,
     location TEXT NOT NULL,
     url TEXT NOT NULL,
-    next_page TEXT NOT NULL,
-    
+    -- next_page TEXT NOT NULL,
+
     -- Sentiment JSONB with constraints
     sentiment JSONB NOT NULL CHECK (
         sentiment ? 'score' AND
@@ -119,4 +138,5 @@ CREATE TABLE comments (
 );
 
 
--- supabase gen types typescript --project-id abcdefghijklmnopqrst > database.types.ts
+-- supabase gen types typescript --project-id pbrravmvyawomfjjzhde > database.types.ts
+-- TRUNCATE TABLE base_products, comments, category RESTART IDENTITY;
