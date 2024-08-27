@@ -27,10 +27,10 @@ export type BaseProduct = {
   category?: number;
   numberOfComments?: number;
   averageRating?: number;
-  isOutOfStock?: Boolean;
+  isOutOfStock?: boolean;
   brand?: string;
   retailer?: string | "Not show";
-  bestSellerRanks?: [];
+  bestSellerRanks?: string[];
   histogram?: { [key: string]: string },
   deliveryLocation?: string;
   salesVolumeLastMonth?: string | "Not show";
@@ -45,12 +45,7 @@ export type CommentItem = {
   title: string;
   content: string;
   date: string;
-  product?: {
-    id: string;
-    asin: string;
-    name: string;
-    category: string;
-  };
+  productId?: number;
   helpfulCount: string;
   rating: string;
   isVerifiedPurchase: boolean;
@@ -70,6 +65,11 @@ export type ProductHistogram = {
   "1 star": string;
 };
 
+export type AmazonScrapedResponse = {
+  product: BaseProduct,
+  comments: CommentItem[],
+  category: CategoryNode
+}
 // export type BaseSentiment = {
 //   score: number;
 //   emotion: string;

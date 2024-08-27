@@ -76,8 +76,6 @@ CREATE TABLE base_products (
         jsonb_typeof(average_sentiment_analysis->'score') = 'number' AND
         jsonb_typeof(average_sentiment_analysis->'emotion') = 'string'
     ),
-
-    description TEXT,
     category INTEGER REFERENCES category(id) ON DELETE CASCADE,
     number_of_comments INTEGER,
     average_rating DECIMAL(3, 2),
@@ -101,19 +99,10 @@ CREATE TABLE comments (
     date TIMESTAMP NOT NULL,
     
     -- Product JSONB with constraints
-    product JSONB NOT NULL CHECK (
-        product ? 'id' AND
-        product ? 'asin' AND
-        product ? 'name' AND
-        product ? 'category' AND
-        jsonb_typeof(product->'id') = 'string' AND
-        jsonb_typeof(product->'asin') = 'string' AND
-        jsonb_typeof(product->'name') = 'string' AND
-        jsonb_typeof(product->'category') = 'string'
-    ),
+    product_id INTEGER REFERENCES base_products(id) ON DELETE CASCADE,
     
     -- Helpful count, rating, verified purchase, location, and URL fields
-    helpful_count INTEGER NOT NULL,
+    helpful_count TEXT NOT NULL,
     rating TEXT NOT NULL,
     verified_purchase BOOLEAN NOT NULL,
     location TEXT NOT NULL,

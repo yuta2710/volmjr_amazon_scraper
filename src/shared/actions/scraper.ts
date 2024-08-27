@@ -14,7 +14,11 @@ import {
   extractComponentsOfPrice,
 } from "./pipeline";
 import { setTimeout as delayPage } from "node:timers/promises";
-import { BaseProduct, CommentItem } from "@/modules/products/product.types";
+import {
+  BaseProduct,
+  CommentItem,
+  AmazonScrapedResponse,
+} from "@/modules/products/product.types";
 import * as util from "util";
 import CategoryNode, {
   buildCategoryHierarchy,
@@ -26,31 +30,19 @@ import CategoryNode, {
  *
  * @param {string} url - The URL of the Amazon product page to scrape.
  */
-export async function scrapeAmazonProduct(url: string) {
+export async function scrapeAmazonProduct(
+  url: string,
+): Promise<AmazonScrapedResponse> {
   if (!url) return;
+  const browser = await puppeteer.launch({
+    headless: true,
+  });
 
-  // let browser;
-  // if (String(process.env.IS_BROWSER_IN_HEADLESS_MODE) === "ON") {
-  //   browser = await puppeteer.launch({
-  //     headless: true,
-  //   });
-  // } else {
-  // browser = await puppeteer.launch({
+  // const browser = await puppeteer.launch({
   //   headless: false,
   //   defaultViewport: null,
   //   args: ["--start-maximized"],
   // });
-  // }
-
-  // const browser = await puppeteer.launch({
-  //   headless: true,
-  // });
-
-  const browser = await puppeteer.launch({
-    headless: false,
-    defaultViewport: null,
-    args: ["--start-maximized"],
-  });
 
   const page = await browser.newPage();
   await page.goto(url);
@@ -58,43 +50,55 @@ export async function scrapeAmazonProduct(url: string) {
   /**
    * TODO: ============================================================= Step solving normal captcha when we set headless = false for debugging ============================================================= */
   try {
-    const captchaPhotoRemoteUrl = await page.evaluate(() => {
-      const el = document.querySelector("div.a-row.a-text-center > img");
-      return el ? el.getAttribute("src") : "";
-    });
+    async function checkAndSolveNormalCaptcha() {
+      try {
+        const captchaPhotoSelector = "div.a-row.a-text-center > img";
+        const captchaPhotoRemoteUrl = await page.evaluate((selector) => {
+          const el = document.querySelector(selector);
+          return el ? el.getAttribute("src") : "";
+        }, captchaPhotoSelector);
 
-    if (!captchaPhotoRemoteUrl) {
-      console.error("\nCaptcha URL not found");
-    }
-    let captureValue: string;
+        if (captchaPhotoRemoteUrl) {
+          console.log("Captcha detected, solving...");
 
-    if (captchaPhotoRemoteUrl !== "") {
-      const executablePath = path.join(
-        __dirname,
-        "../../../src/scripts/normal+captcha.py",
-      );
-      const command = `python ${executablePath} ${captchaPhotoRemoteUrl}`;
+          const executablePath = path.join(
+            __dirname,
+            "../../../src/scripts/normal+captcha.py",
+          );
+          const command = `python ${executablePath} ${captchaPhotoRemoteUrl}`;
 
-      exec(command, async (error, stdout, stderr) => {
-        if (error) {
-          console.error(`Error: ${error.message}`);
-          return;
+          exec(command, async (error, stdout, stderr) => {
+            if (error) {
+              console.error(`Error: ${error.message}`);
+              return;
+            }
+            if (stderr) {
+              console.error(`stderr: ${stderr}`);
+              return;
+            }
+            const captureValue = stdout.trim();
+
+            await page.waitForSelector("#captchacharacters");
+            await page.type("#captchacharacters", captureValue);
+
+            const button = await page.$(".a-button-text");
+            await button.click();
+
+            await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+
+            console.log("Captcha solved and form submitted.");
+          });
+        } else {
+          console.info("Captcha not detected, proceeding to login...");
+          // Proceed to login since captcha was not detected
         }
-        if (stderr) {
-          console.error(`stderr: ${stderr}`);
-          return;
-        }
-        captureValue = stdout.trim();
-
-        await page.waitForSelector("#captchacharacters");
-        await page.type("#captchacharacters", captureValue);
-
-        const button = await page.$(".a-button-text");
-        button.click();
-
-        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-      });
+      } catch (err) {
+        console.error("Error handling captcha:", err.message);
+      }
     }
+
+    // Call the captcha check function after loading the page
+    await checkAndSolveNormalCaptcha();
 
     // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
     await delayPage(2000);
@@ -122,57 +126,84 @@ export async function scrapeAmazonProduct(url: string) {
       await signInSubmitButton.click();
 
       await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-      // await page.reload();
+
+
 
       /**
-       * TODO: ============================================================= Step to check captcha audio verification if it requires ============================================================= */
-      const changeToAudioCaptchaButton = await page.$(
-        "a.a-link-normal.cvf-widget-link-alternative-captcha.cvf-widget-btn-val.cvf-widget-link-disable-target.captcha_refresh_link",
-      );
-      if (changeToAudioCaptchaButton) {
-        await changeToAudioCaptchaButton.click();
+       * TODO: ============================================================= Step to check Captcha Audio verification if it requires ============================================================= */
+      // Function to check for the presence of the captcha
+      async function checkAndHandleCaptchaAudio() {
+        const captchaSelector =
+          "a.a-link-normal.cvf-widget-link-alternative-captcha.cvf-widget-btn-val.cvf-widget-link-disable-target.captcha_refresh_link";
 
-        // await delayPage(2000);
-        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-        const audioUrl = await page.$eval("source[type='audio/ogg']", (el) =>
-          el.getAttribute("src"),
-        );
-        const client = new AssemblyAI({
-          apiKey: String(process.env.ASSEMBLY_AI_API_KEY),
-        });
-        // Request parameters
-        const data = {
-          audio_url: audioUrl,
-        };
-        const getTranscript = async () => {
-          const transcript = await client.transcripts.transcribe(data);
-          return transcript.text;
-        };
+        try {
+          const captchaElement = await page.waitForSelector(captchaSelector, {
+            timeout: 5000, // Wait up to 5 seconds for the captcha to appear
+          });
 
-        const processedTranscript = await getTranscript();
-        const transcriptList = processedTranscript.split(" ");
-        const processedAudioCaptchaValue = transcriptList[
-          transcriptList.length - 1
-        ].replace(".", "");
+          if (captchaElement) {
+            console.log("Captcha detected, handling audio captcha...");
+            await captchaElement.click();
 
-        console.log("Proccessed captcha value = ", processedAudioCaptchaValue);
+            await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+            const audioUrl = await page.$eval(
+              "source[type='audio/ogg']",
+              (el) => el.getAttribute("src"),
+            );
+            const client = new AssemblyAI({
+              apiKey: String(process.env.ASSEMBLY_AI_API_KEY),
+            });
+            const data = {
+              audio_url: audioUrl,
+            };
+            const getTranscript = async () => {
+              const transcript = await client.transcripts.transcribe(data);
+              return transcript.text;
+            };
 
-        await page.waitForSelector(
-          ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
-        );
-        await page.type(
-          ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
-          processedAudioCaptchaValue,
-        );
-        const continueButton = await page.$(
-          ".a-button.a-button-span12.a-button-primary.cvf-widget-btn-captcha.cvf-widget-btn-verify-captcha",
-        );
-        await continueButton.click();
-        // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+            const processedTranscript = await getTranscript();
+            const transcriptList = processedTranscript.split(" ");
+            const processedAudioCaptchaValue = transcriptList[
+              transcriptList.length - 1
+            ].replace(".", "");
+
+            console.log(
+              "Processed captcha value = ",
+              processedAudioCaptchaValue,
+            );
+
+            await page.waitForSelector(
+              ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
+            );
+            await page.type(
+              ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
+              processedAudioCaptchaValue,
+            );
+
+            const continueCaptchaButton = await page.$(
+              ".a-button.a-button-span12.a-button-primary.cvf-widget-btn-captcha.cvf-widget-btn-verify-captcha",
+            );
+            if (continueCaptchaButton) {
+              await continueCaptchaButton.click();
+              await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+            } else {
+              throw new Error("Continue button for captcha not found.");
+            }
+          }
+        } catch (err) {
+          if (err.name === "TimeoutError") {
+            console.info("Captcha Audio not detected, continuing...");
+            // If captcha is not detected, proceed as normal
+          } else {
+            console.error("Error handling captcha:", err.message);
+            // Handle other errors as needed, possibly retry or log them
+          }
+        }
       }
 
-      // await page.reload();
-
+      // Call the captcha check function after sign-in attempt
+      await checkAndHandleCaptchaAudio();
+      
       /**
        * TODO: ============================================================= Scrape the main data of the products ============================================================= */
       const asin = extractAsinFromUrl(
@@ -366,11 +397,6 @@ export async function scrapeAmazonProduct(url: string) {
       );
       categoryHierarchy.displayHierarchyAsJSON();
 
-      // SAVED TO DB: Category
-      console.log("\nSaving category started.......");
-      const insertedCategoryId: number =
-        await saveCategoryHierarchy(categoryHierarchy);
-
       try {
         const percentageText = await page.$eval(
           "span.a-size-large.a-color-price.savingPriceOverride.aok-align-center.reinventPriceSavingsPercentageMargin.savingsPercentage",
@@ -384,13 +410,49 @@ export async function scrapeAmazonProduct(url: string) {
         console.warn("\nPercentage not displayed");
       }
 
+      const queryProductDetailsListAsTable = await page.$$(
+        "table#productDetails_detailBullets_sections1 tbody tr",
+      );
+      let bestSellerRankJson = { heading: "", attributeVal: "" };
+
+      for (let i = 0; i < queryProductDetailsListAsTable.length; i++) {
+        const heading = await queryProductDetailsListAsTable[i].$eval(
+          "th.a-color-secondary.a-size-base.prodDetSectionEntry",
+          (el) => el.textContent.trim(),
+        );
+        const attributeVal = await queryProductDetailsListAsTable[i].$eval(
+          "td",
+          (el) => el.textContent.trim(),
+        );
+
+        if (heading === "Best Sellers Rank") {
+          bestSellerRankJson = {
+            heading,
+            attributeVal,
+          };
+        }
+      }
+
+      console.log("\nBest Seller Rank");
+      console.log(bestSellerRankJson);
+
+      const bestSellerRankAttributeArr: string[] =
+        bestSellerRankJson["attributeVal"].split("   ");
+
+      console.log("\nBest Seller Rank Array Attribute Values");
+      console.log(bestSellerRankAttributeArr);
+
+      const image = (await page.$eval("img#landingImage", (el) =>
+        el.getAttribute("src"),
+      )) as string;
+
       /**
        * ! This is the completed product but still miss these fields (numberOfComments, averageSentimentAnalysis) */
       const scrapedProduct: BaseProduct = {
         asin,
         title,
         price: {
-          amount: originalPriceMetric,
+          amount: extractComponentsOfPrice(currentPrice)[1] as number,
           currency,
           displayAmount: String(originalPrice),
           currentPrice: extractComponentsOfPrice(currentPrice)[1] as number,
@@ -411,75 +473,129 @@ export async function scrapeAmazonProduct(url: string) {
         retailer: retailerName,
         businessTargetForCollecting: "amazon",
         url: String(page.url()),
-        category: insertedCategoryId,
+        bestSellerRanks: bestSellerRankAttributeArr,
+        // category: insertedCategoryId,
         isOutOfStock,
+        brand: "Amazon",
+        image,
       };
 
       // After saved asin, title, price...., navigate to comment page
-      const reviewButton = await page.$(".a-link-emphasis.a-text-bold");
-      await reviewButton.click();
+      // Wait for the review button to appear and be clickable
+      const reviewButton = await page.waitForSelector(
+        ".a-link-emphasis.a-text-bold",
+        { timeout: 5000 },
+      );
 
-      await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-      const comment_url = page.url() + "&sortBy=recent&pageNumber=1";
-      console.log("After navigate = ", comment_url);
-      await page.goto(comment_url);
+      if (reviewButton) {
+        try {
+          await reviewButton.click();
+          await page.waitForNavigation({
+            waitUntil: "domcontentloaded",
+            timeout: 10000,
+          }); // Timeout after 10 seconds
 
-      // Set wating for the page fully loaded
-      // await page.reload();
+          const comment_url = `${page.url()}&sortBy=recent&pageNumber=1`;
+          console.log("After navigate = ", comment_url);
 
-      /**
-       * TODO: ============================================================= Steps to scrape the comments ============================================================= */
-      const collectedComments: CommentItem[] = await scrapeCommentsRecursively(page);
-      console.log("\nCollected comments");
-      // console.log(collectedComments);
-      console.log("Total collected comments:", collectedComments.length);
+          // Implement retry mechanism for page navigation
+          let retries = 3;
+          let success = false;
 
-      scrapedProduct.numberOfComments = collectedComments.length;
+          while (retries > 0 && !success) {
+            try {
+              await page.goto(comment_url, {
+                waitUntil: "domcontentloaded",
+                timeout: 10000,
+              }); // Timeout after 10 seconds
+              success = true; // If navigation succeeds, break out of the loop
+            } catch (error) {
+              console.error(
+                `Navigation to ${comment_url} failed: ${error.message}. Retries left: ${retries - 1}`,
+              );
+              retries--;
+              if (retries === 0) {
+                throw new Error(
+                  "Failed to navigate to comments after multiple attempts.",
+                );
+              }
+            }
+          }
 
-      if (collectedComments.length > 0) {
-        const totalScore = collectedComments.reduce(
-          (sum, data: CommentItem) => {
-            const score = data.sentiment.score;
-            return (
-              sum + (typeof score === "number" && !isNaN(score) ? score : 0)
+          // Set waiting for the page to fully load if needed
+          // await page.reload();
+
+          /**
+           * TODO: ============================================================= Steps to scrape the comments ============================================================= */
+          const collectedComments: CommentItem[] =
+            await scrapeCommentsRecursively(page);
+          // console.log(collectedComments);
+          console.log("Total collected comments:", collectedComments.length);
+
+          scrapedProduct.numberOfComments = collectedComments.length;
+
+          // Calculate the average of sentiment comment
+          if (collectedComments.length > 0) {
+            const totalScore = collectedComments.reduce(
+              (sum, data: CommentItem) => {
+                const score = data.sentiment.score;
+                return (
+                  sum + (typeof score === "number" && !isNaN(score) ? score : 0)
+                );
+              },
+              0,
             );
-          },
-          0,
-        );
 
-        const listOfScoreFromComments = collectedComments.map(
-          (comment: CommentItem) => comment.sentiment.score,
-        );
+            const listOfScoreFromComments = collectedComments.map(
+              (comment: CommentItem) => comment.sentiment.score,
+            );
 
-        console.log(
-          `\nList score of comments ${listOfScoreFromComments.length}`,
-        );
-        console.log(listOfScoreFromComments);
+            console.log(
+              `\nList score of comments ${listOfScoreFromComments.length}`,
+            );
+            console.log(listOfScoreFromComments);
 
-        // Calculate the average sentiment score
-        const averageSentimentScoreOfScrapedProduct: number = Number(
-          (totalScore / collectedComments.length).toFixed(1),
-        );
+            // Calculate the average sentiment score
+            const averageSentimentScoreOfScrapedProduct: number = Number(
+              (totalScore / collectedComments.length).toFixed(1),
+            );
 
-        // Analyze the emotion based on the average sentiment score
-        const averageSentimentEmotionOfScrapedProduct: string =
-          analyzeEmotionByScore(averageSentimentScoreOfScrapedProduct);
+            // Analyze the emotion based on the average sentiment score
+            const averageSentimentEmotionOfScrapedProduct: string =
+              analyzeEmotionByScore(averageSentimentScoreOfScrapedProduct);
 
-        // Ensure that scrapedProduct.averageSentimentAnalysis is properly initialized
-        scrapedProduct.averageSentimentAnalysis = {
-          score: averageSentimentScoreOfScrapedProduct,
-          emotion: averageSentimentEmotionOfScrapedProduct,
-        };
+            // Ensure that scrapedProduct.averageSentimentAnalysis is properly initialized
+            scrapedProduct.averageSentimentAnalysis = {
+              score: averageSentimentScoreOfScrapedProduct,
+              emotion: averageSentimentEmotionOfScrapedProduct,
+            };
+          } else {
+            // Handle the case where there are no comments
+            console.error("No comments found in collectedComments.");
+          }
+
+          /**
+           * * Product's data structure is completed
+           */
+          console.log("\nProduct complete scraping");
+          console.log(scrapedProduct);
+
+          return {
+            product: scrapedProduct,
+            comments: collectedComments,
+            category: categoryHierarchy,
+          } as AmazonScrapedResponse;
+        } catch (error) {
+          console.error(
+            "Error during navigation or comment scraping:",
+            error.message,
+          );
+        }
       } else {
-        console.error("No comments found in collectedComments.");
-        // Handle the case where there are no comments
+        console.error(
+          "Review button not found, cannot proceed with comment scraping.",
+        );
       }
-
-      /** 
-       * * Product's data structure is completed 
-        */
-      console.log("\nProduct complete scraping");
-      console.log(scrapedProduct);
 
       // https://www.amazon.com/Tanisa-Organic-Spring-Paper-Wrapper/product-reviews/B07KXPKRNK/ref=cm_cr_arp_d_viewpnt_lft?ie=UTF8&reviewerType=all_reviews&filterByStar=all_stars&pageNumber=1
     } else {
@@ -598,12 +714,6 @@ async function scrapeCommentsRecursively(
         score: averageSentimentScore,
         emotion: averageSentimentEmotion,
       },
-      // product: {
-      //   id: ,
-      //   asin: string;
-      //   name: string;
-      //   category: string;
-      // };
     };
 
     collectedComments.push(commentItem);
