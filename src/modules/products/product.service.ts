@@ -112,6 +112,16 @@ export default class BaseProductService {
               console.info("Product inserted successfully:", data);
             }
           } catch (error) {}
+          
+
+          // if(scrapedDataResponse.comments.length > 0){
+          //   const bulkCommentsInsert = 
+          //   try {
+          //     const { data, error } = await supabase.from("comments").insert([BaseCommentInsert as BaseCommentInsert[]])
+          //   } catch (error) {
+              
+          //   }
+          // }
         }
       }
     }

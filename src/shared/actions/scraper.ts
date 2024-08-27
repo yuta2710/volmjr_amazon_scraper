@@ -474,13 +474,12 @@ export async function scrapeAmazonProduct(
         businessTargetForCollecting: "amazon",
         url: String(page.url()),
         bestSellerRanks: bestSellerRankAttributeArr,
-        // category: insertedCategoryId,
         isOutOfStock,
         brand: "Amazon",
         image,
       };
 
-      // After saved asin, title, price...., navigate to comment page
+      // After format asin, title, price...., navigate to comment page
       // Wait for the review button to appear and be clickable
       const reviewButton = await page.waitForSelector(
         ".a-link-emphasis.a-text-bold",
@@ -522,14 +521,9 @@ export async function scrapeAmazonProduct(
             }
           }
 
-          // Set waiting for the page to fully load if needed
-          // await page.reload();
-
           /**
            * TODO: ============================================================= Steps to scrape the comments ============================================================= */
-          const collectedComments: CommentItem[] =
-            await scrapeCommentsRecursively(page);
-          // console.log(collectedComments);
+          const collectedComments: CommentItem[] = await scrapeCommentsRecursively(page);
           console.log("Total collected comments:", collectedComments.length);
 
           scrapedProduct.numberOfComments = collectedComments.length;
@@ -550,10 +544,10 @@ export async function scrapeAmazonProduct(
               (comment: CommentItem) => comment.sentiment.score,
             );
 
-            console.log(
-              `\nList score of comments ${listOfScoreFromComments.length}`,
-            );
-            console.log(listOfScoreFromComments);
+            // console.log(
+            //   `\nList score of comments ${listOfScoreFromComments.length}`,
+            // );
+            // console.log(listOfScoreFromComments);
 
             // Calculate the average sentiment score
             const averageSentimentScoreOfScrapedProduct: number = Number(
@@ -602,12 +596,8 @@ export async function scrapeAmazonProduct(
       console.error("Sign-in button not found");
     }
   } catch (error) {}
-  // await browser.close();
 
-  try {
-  } catch (err) {
-    console.log(err);
-  }
+  await browser.close();
 }
 
 /**
