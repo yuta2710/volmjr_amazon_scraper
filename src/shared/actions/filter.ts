@@ -1,3 +1,6 @@
+import { CategoryHelper, CategoryNode } from "../../modules/category/category.model";
+import { ElementHandle } from "puppeteer";
+
 export enum FilterProductAttributesFromUrl {
   ASIN,
   NAME,
@@ -69,3 +72,52 @@ export const filterStarRatings = (
 
   return ratingObj;
 };
+
+export const filterCategoryAsListByHtml = async(categoryContainerSelectorList: ElementHandle<HTMLLIElement>[]): Promise<CategoryNode> => {
+  let filtratedCategories: string[] = [];
+
+  // Process the data in selector list
+  if (categoryContainerSelectorList.length > 0) {
+    for (let i = 0; i < categoryContainerSelectorList.length; i++) {
+      let categoryText = await categoryContainerSelectorList[i].$eval(
+        "span",
+        (el) => el.textContent.trim(),
+      );
+      filtratedCategories.push(categoryText);
+    }
+  }
+
+  // Remove the special character
+  filtratedCategories = filtratedCategories.filter((data) => data !== "›");
+
+  // Setup the 2N rule
+  const totalCategoryNode: number = filtratedCategories.length;
+  const STAR_RULE = 1;
+  const END_RULE = 2 * totalCategoryNode;
+
+  const categoryHelper = new CategoryHelper();
+  // Build the tree of category
+  let categoryHierarchy: CategoryNode = categoryHelper.buildCategoryHierarchy(
+    filtratedCategories,
+    STAR_RULE,
+    END_RULE,
+  );
+
+  return categoryHierarchy
+}
+
+export const filterBestSellerRanksInRawContent = (queryProductDetailsContainerRawText: string) => {
+  let bestSellerRankJson = {
+    heading: "",
+    attributeVal: ""
+  }
+  const bestSellerRankRegex =
+      /Best Sellers Rank:\s*([^]+?)\s*Customer Reviews:/;
+    // Match the text and extract the Best Sellers Rank information
+    const matches = queryProductDetailsContainerRawText.match(bestSellerRankRegex);
+    if (matches && matches[1]) {
+      bestSellerRankJson.heading = "Best Sellers Rank";
+      bestSellerRankJson.attributeVal = matches[1].trim();
+    }
+    return bestSellerRankJson;
+}

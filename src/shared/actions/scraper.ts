@@ -1,4 +1,4 @@
-import puppeteer, { Page } from "puppeteer";
+import puppeteer, { ElementHandle, Page } from "puppeteer";
 import { exec } from "child_process";
 import path from "path";
 import { AssemblyAI } from "assemblyai";
@@ -9,15 +9,18 @@ import {
   filterNewlineSeparatedText,
   FilterProductAttributesFromUrl,
   filterComponentsOfPrice,
+  filterCategoryAsListByHtml,
 } from "./filter";
 import { analyzeSentiment, analyzeEmotionByScore } from "./analyze";
-import { setTimeout as delayPage } from "node:timers/promises";
 import {
   BaseProduct,
   CommentItem,
   AmazonScrapedResponse,
 } from "@/modules/products/product.types";
-import { CategoryHelper, CategoryNode } from "../../modules/category/category.model";
+import {
+  CategoryHelper,
+  CategoryNode,
+} from "../../modules/category/category.model";
 import { GREEN, RESET } from "../constants";
 
 /**
@@ -37,7 +40,7 @@ export async function scrapeAmazonProduct(
   const page = await browser.newPage();
   await page.goto(url).catch(console.error);
 
-      /**
+  /**
    * TODO: ============================================================= [AUTHENTICATION] - check Captcha Audio verification if it requires ============================================================= */
   async function checkAndSolveNormalCaptcha() {
     try {
@@ -225,6 +228,143 @@ export async function scrapeAmazonProduct(
     }
   }
 
+  /** 
+   * TODO: ============================================================= Process/Build the category hirarchy =============================================================
+  
+  */
+  let categoryContainerSelectorList = await page.$$(
+    "#wayfinding-breadcrumbs_feature_div ul > li",
+  );
+  // Build the tree of category
+  let categoryHierarchy: CategoryNode = await filterCategoryAsListByHtml(
+    categoryContainerSelectorList as ElementHandle<HTMLLIElement>[],
+  );
+  categoryHierarchy.displayHierarchyAsJSON();
+
+  const scrapedProduct: BaseProduct =
+    await collectProductDataExceptForeignField(page);
+
+  // After format asin, title, price...., navigate to comment page
+  // Wait for the review button to appear and be clickable
+  const reviewButton = await page.waitForSelector(
+    ".a-link-emphasis.a-text-bold",
+    { timeout: 5000 },
+  );
+
+  if (reviewButton) {
+    try {
+      await reviewButton.click();
+      await page.waitForNavigation({
+        waitUntil: "domcontentloaded",
+        timeout: 10000,
+      }); // Timeout after 10 seconds
+
+      const comment_url = `${page.url()}&sortBy=recent&pageNumber=1`;
+      console.log("After navigate = ", comment_url);
+
+      // Implement retry mechanism for page navigation
+      let retries = 3;
+      let success = false;
+      
+      while (retries > 0 && !success) {
+        try {
+          await page.goto(comment_url, {
+            waitUntil: "domcontentloaded",
+            timeout: 10000,
+          }); // Timeout after 10 seconds
+      
+          // Explicitly wait for an expected element on the comments page
+          await page.waitForSelector('.a-section.review', { timeout: 5000 });
+      
+          success = true; // If navigation and element detection succeed, break out of the loop
+          console.log(GREEN + "Success retry" + RESET);
+        } catch (error) {
+          console.error(
+            `Navigation to ${comment_url} failed: ${error.message}. Retries left: ${retries - 1}`,
+          );
+          retries--;
+          if (retries === 0) {
+            throw new Error(
+              "Failed to navigate to comments after multiple attempts.",
+            );
+          }
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Add a small delay between retries
+        }
+      }
+      
+
+      /**
+       * TODO: ============================================================= Steps to scrape the comments ============================================================= */
+      const collectedComments: CommentItem[] =
+        await scrapeCommentsRecursively(page);
+      console.log("Total collected comments:", collectedComments.length);
+
+      // Update the amount of comments
+      scrapedProduct.numberOfComments = collectedComments.length;
+
+      // Calculate the average of sentiment comment
+      if (collectedComments.length > 0) {
+        const totalScore = collectedComments.reduce(
+          (sum, data: CommentItem) => {
+            const score = data.sentiment.score;
+            return (
+              sum + (typeof score === "number" && !isNaN(score) ? score : 0)
+            );
+          },
+          0,
+        );
+
+        const listOfScoreFromComments = collectedComments.map(
+          (comment: CommentItem) => comment.sentiment.score,
+        );
+
+        // Calculate the average sentiment score
+        const averageSentimentScoreOfScrapedProduct: number = Number(
+          (totalScore / collectedComments.length).toFixed(1),
+        );
+
+        // Analyze the emotion based on the average sentiment score
+        const averageSentimentEmotionOfScrapedProduct: string =
+          analyzeEmotionByScore(averageSentimentScoreOfScrapedProduct);
+
+        // Ensure that scrapedProduct.averageSentimentAnalysis is properly initialized
+        scrapedProduct.averageSentimentAnalysis = {
+          score: averageSentimentScoreOfScrapedProduct,
+          emotion: averageSentimentEmotionOfScrapedProduct,
+        };
+      } else {
+        // Handle the case where there are no comments
+        console.error("No comments found in collectedComments.");
+      }
+
+      /**
+       * * Amazon's scraped data structure is completed
+       */
+      return {
+        product: scrapedProduct,
+        comments: collectedComments,
+        category: categoryHierarchy,
+      } as AmazonScrapedResponse;
+    } catch (error) {
+      console.error("Error in scrapeAmazonProduct:", error.message);
+      return null; // Return null or handle the error appropriately
+    } finally {
+      if (browser) {
+        await browser.close(); // Ensure browser is closed even if an error occurs
+      }
+    }
+  } else {
+    console.error(
+      "Review button not found, cannot proceed with comment scraping.",
+    );
+  }
+  // https://www.amazon.com/Tanisa-Organic-Spring-Paper-Wrapper/product-reviews/B07KXPKRNK/ref=cm_cr_arp_d_viewpnt_lft?ie=UTF8&reviewerType=all_reviews&filterByStar=all_stars&pageNumber=1
+}
+
+async function collectProductDataExceptForeignField(
+  page: Page,
+  collectedProduct: BaseProduct = null,
+): Promise<BaseProduct> {
   /**
    * TODO: ============================================================= Scrape the main data of the products ============================================================= */
   const asin = filterAsinFromUrl(
@@ -273,7 +413,7 @@ export async function scrapeAmazonProduct(
       originalPriceMetric = Number(originalPrice.replace("$", ""));
     }
   } catch (error) {
-    console.warn("Price element not found or unable to extract price:", error);
+    console.error("\nPrice element not found or unable to extract price:");
     originalPrice = "";
     originalPriceMetric = 0;
   }
@@ -371,45 +511,6 @@ export async function scrapeAmazonProduct(
   console.log(`Metric of average rating = ${filtratedAverageRatingMetric}`);
   console.log("Original price = ", originalPrice);
 
-  let categoryContainerSelectorList = await page.$$(
-    "#wayfinding-breadcrumbs_feature_div ul > li",
-  );
-
-  /** 
- * TODO: ============================================================= Process/Build the category hirarchy =============================================================
-
- */
-  let filtratedCategories: string[] = [];
-
-  // Process the data in selector list
-  if (categoryContainerSelectorList.length > 0) {
-    for (let i = 0; i < categoryContainerSelectorList.length; i++) {
-      let categoryText = await categoryContainerSelectorList[i].$eval(
-        "span",
-        (el) => el.textContent.trim(),
-      );
-      filtratedCategories.push(categoryText);
-    }
-  }
-
-  // Remove the special character
-  filtratedCategories = filtratedCategories.filter((data) => data !== "›");
-
-  // Setup the 2N rule
-  const totalCategoryNode: number = filtratedCategories.length;
-  const STAR_RULE = 1;
-  const END_RULE = 2 * totalCategoryNode;
-
-  const categoryHelper = new CategoryHelper();
-  // Build the tree of category
-  let categoryHierarchy: CategoryNode = categoryHelper.buildCategoryHierarchy(
-    filtratedCategories,
-    STAR_RULE,
-    END_RULE,
-  );
-  
-  categoryHierarchy.displayHierarchyAsJSON();
-
   // Percentage selling
   let percentage: string | null;
 
@@ -428,31 +529,8 @@ export async function scrapeAmazonProduct(
     console.warn("\nPercentage not displayed");
   }
 
-  const queryProductDetailsListAsTable = await page.$$(
-    "table#productDetails_detailBullets_sections1 tbody tr",
-  );
-  let bestSellerRankJson = { heading: "", attributeVal: "" };
-
-  for (let i = 0; i < queryProductDetailsListAsTable.length; i++) {
-    const heading = await queryProductDetailsListAsTable[i].$eval(
-      "th.a-color-secondary.a-size-base.prodDetSectionEntry",
-      (el) => el.textContent.trim(),
-    );
-    const attributeVal = await queryProductDetailsListAsTable[i].$eval(
-      "td",
-      (el) => el.textContent.trim(),
-    );
-
-    if (heading === "Best Sellers Rank") {
-      bestSellerRankJson = {
-        heading,
-        attributeVal,
-      };
-    }
-  }
-
-  console.log("\nBest Seller Rank");
-  console.log(bestSellerRankJson);
+  const bestSellerRankJson = await getBestSellerRankByHtmlElement(page);
+  console.error("\n\nBest seller ranks test code = ", bestSellerRankJson);
 
   const bestSellerRankAttributeArr: string[] =
     bestSellerRankJson["attributeVal"].split("   ");
@@ -464,9 +542,7 @@ export async function scrapeAmazonProduct(
     el.getAttribute("src"),
   )) as string;
 
-  /**
-   * ! This is the completed product but still miss these fields (numberOfComments, averageSentimentAnalysis) */
-  const scrapedProduct: BaseProduct = {
+  collectedProduct = {
     asin,
     title,
     price: {
@@ -497,116 +573,69 @@ export async function scrapeAmazonProduct(
     image,
   };
 
-  // After format asin, title, price...., navigate to comment page
-  // Wait for the review button to appear and be clickable
-  const reviewButton = await page.waitForSelector(
-    ".a-link-emphasis.a-text-bold",
-    { timeout: 5000 },
-  );
-
-  if (reviewButton) {
-    try {
-      await reviewButton.click();
-      await page.waitForNavigation({
-        waitUntil: "domcontentloaded",
-        timeout: 10000,
-      }); // Timeout after 10 seconds
-
-      const comment_url = `${page.url()}&sortBy=recent&pageNumber=1`;
-      console.log("After navigate = ", comment_url);
-
-      // Implement retry mechanism for page navigation
-      let retries = 5;
-      let success = false;
-
-      while (retries > 0 && !success) {
-        try {
-          await page.goto(comment_url, {
-            waitUntil: "domcontentloaded",
-            timeout: 10000,
-          }); // Timeout after 10 seconds
-          success = true; // If navigation succeeds, break out of the loop
-          console.log(GREEN + "Success retry" + RESET)
-        } catch (error) {
-          console.error(
-            `Navigation to ${comment_url} failed: ${error.message}. Retries left: ${retries - 1}`,
-          );
-          retries--;
-          if (retries === 0) {
-            throw new Error(
-              "Failed to navigate to comments after multiple attempts.",
-            );
-          }
-        }
-      }
-
-      /**
-       * TODO: ============================================================= Steps to scrape the comments ============================================================= */
-      const collectedComments: CommentItem[] =
-        await scrapeCommentsRecursively(page);
-      console.log("Total collected comments:", collectedComments.length);
-
-      scrapedProduct.numberOfComments = collectedComments.length;
-
-      // Calculate the average of sentiment comment
-      if (collectedComments.length > 0) {
-        const totalScore = collectedComments.reduce(
-          (sum, data: CommentItem) => {
-            const score = data.sentiment.score;
-            return (
-              sum + (typeof score === "number" && !isNaN(score) ? score : 0)
-            );
-          },
-          0,
-        );
-
-        const listOfScoreFromComments = collectedComments.map(
-          (comment: CommentItem) => comment.sentiment.score,
-        );
-
-        // Calculate the average sentiment score
-        const averageSentimentScoreOfScrapedProduct: number = Number(
-          (totalScore / collectedComments.length).toFixed(1),
-        );
-
-        // Analyze the emotion based on the average sentiment score
-        const averageSentimentEmotionOfScrapedProduct: string =
-          analyzeEmotionByScore(averageSentimentScoreOfScrapedProduct);
-
-        // Ensure that scrapedProduct.averageSentimentAnalysis is properly initialized
-        scrapedProduct.averageSentimentAnalysis = {
-          score: averageSentimentScoreOfScrapedProduct,
-          emotion: averageSentimentEmotionOfScrapedProduct,
-        };
-      } else {
-        // Handle the case where there are no comments
-        console.error("No comments found in collectedComments.");
-      }
-
-      /**
-       * * Amazon's scraped data structure is completed
-       */
-      return {
-        product: scrapedProduct,
-        comments: collectedComments,
-        category: categoryHierarchy,
-      } as AmazonScrapedResponse;
-    } catch (error) {
-      console.error("Error in scrapeAmazonProduct:", error.message);
-      return null; // Return null or handle the error appropriately
-    } finally {
-      if (browser) {
-        await browser.close(); // Ensure browser is closed even if an error occurs
-      }
-    }
-  } else {
-    console.error(
-      "Review button not found, cannot proceed with comment scraping.",
-    );
-  }
-  // https://www.amazon.com/Tanisa-Organic-Spring-Paper-Wrapper/product-reviews/B07KXPKRNK/ref=cm_cr_arp_d_viewpnt_lft?ie=UTF8&reviewerType=all_reviews&filterByStar=all_stars&pageNumber=1
+  return collectedProduct;
 }
 
+async function getBestSellerRankByHtmlElement(page: Page): Promise<{
+  heading: string;
+  attributeVal: string;
+}> {
+  let bestSellerRankJson = { heading: "", attributeVal: "" };
+  let bestSellerRankRegex: RegExp;
+  // Try to select the Best Seller Ranks from the <ul> tag first
+  try {
+    const bestSellerRanksUlRawText = await page.$eval(
+      "#detailBulletsWrapper_feature_div",
+      el => el.textContent.trim()
+    );
+
+    console.error("Fuck Loi")
+    console.error(bestSellerRanksUlRawText);
+    bestSellerRankRegex = /Best Sellers Rank:\s*([\s\S]+?)Customer Reviews:/;
+    // Apply the regex pattern to extract the Best Sellers Rank information
+    const match = bestSellerRanksUlRawText.match(bestSellerRankRegex);
+
+    if (match) {
+      const bestSellerRankText = match[1].trim();
+      const bestSellerRankJson = {
+        heading: "Best Sellers Rank",
+        attributeVal: bestSellerRankText,
+      };
+      // console.log(bestSellerRankJson);
+      return bestSellerRankJson;
+    } else {
+      console.log("Best Sellers Rank not found.");
+    }    
+  } catch (error) {
+    console.error("Error processing <ul> tag for Best Seller Ranks:");
+  }
+
+  // If the <ul> tag doesn't contain the Best Sellers Rank, check the <table> tag
+  try {
+    const queryProductDetailsContainerRawText = await page.$eval(
+      ".a-keyvalue.prodDetTable:nth-child(1)",
+      (el) => el.textContent.trim(),
+    );
+
+    const bestSellerRankMatch = queryProductDetailsContainerRawText.match(
+      /Best Sellers Rank\s+(#\d+[\s\S]+?)(?=\s+Date First Available)/,
+    );
+
+    if (bestSellerRankMatch) {
+      bestSellerRankJson = {
+        heading: "Best Sellers Rank",
+        attributeVal: bestSellerRankMatch[1].trim(),
+      };
+    }
+    
+    return bestSellerRankJson;
+  } catch (error) {
+    console.error("Error processing <table> tag for Best Seller Ranks");
+  }
+
+  // Return empty result if nothing is found
+  return bestSellerRankJson;
+}
 
 
 /**

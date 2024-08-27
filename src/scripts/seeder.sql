@@ -27,29 +27,6 @@ CREATE TABLE base_products (
     title TEXT NOT NULL,
 
     -- Price JSONB with constraints
-    -- price JSONB NOT NULL CHECK (
-    --     price ? 'amount' AND
-    --     price ? 'currency' AND
-    --     price ? 'displayAmount' AND
-    --     price ? 'currentPrice' AND
-    --     price ? 'originalPrice' AND
-    --     price ? 'highestPrice' AND
-    --     price ? 'lowestPrice' AND
-    --     price ? 'savings' AND
-    --     jsonb_typeof(price->'amount') = 'number' AND
-    --     jsonb_typeof(price->'currency') = 'string' AND
-    --     jsonb_typeof(price->'displayAmount') = 'string' AND
-    --     jsonb_typeof(price->'currentPrice') = 'number' AND
-    --     jsonb_typeof(price->'originalPrice') = 'number' AND
-    --     jsonb_typeof(price->'highestPrice') = 'number' AND
-    --     jsonb_typeof(price->'lowestPrice') = 'number' AND
-    --     jsonb_typeof(price->'savings') = 'object' AND
-    --     jsonb_typeof(price->'savings'->'amount') = 'number' AND
-    --     jsonb_typeof(price->'savings'->'currency') = 'string' AND
-    --     jsonb_typeof(price->'savings'->'displayAmount') = 'string' AND
-    --     jsonb_typeof(price->'savings'->'percentage') = 'string' AND
-    --     validate_percentage(price->'savings'->>'percentage')
-    -- ),
     price JSONB NOT NULL CHECK (
       (price ? 'amount' IS FALSE OR jsonb_typeof(price->'amount') = 'number') AND
       (price ? 'currency' IS FALSE OR jsonb_typeof(price->'currency') = 'string') AND
