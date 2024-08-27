@@ -21,6 +21,7 @@ CREATE TABLE category (
 -- Create the base_product table with constraints on JSONB fields
 CREATE TABLE base_products (
     id SERIAL PRIMARY KEY,
+    asin TEXT NOT NULL,
     url TEXT NOT NULL,
     image TEXT,
     title TEXT NOT NULL,

@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       base_products: {
         Row: {
+          asin: string
           average_rating: number | null
           average_sentiment_analysis: Json
           best_seller_ranks: string[] | null
@@ -30,6 +31,7 @@ export type Database = {
           url: string
         }
         Insert: {
+          asin: string
           average_rating?: number | null
           average_sentiment_analysis: Json
           best_seller_ranks?: string[] | null
@@ -49,6 +51,7 @@ export type Database = {
           url: string
         }
         Update: {
+          asin?: string
           average_rating?: number | null
           average_sentiment_analysis?: Json
           best_seller_ranks?: string[] | null

@@ -17,7 +17,8 @@ import {
   CommentItem,
   AmazonScrapedResponse,
 } from "@/modules/products/product.types";
-import CategoryNode, { buildCategoryHierarchy } from "../category";
+import { CategoryHelper, CategoryNode } from "../../modules/category/category.model";
+import { GREEN, RESET } from "../constants";
 
 /**
  * Scrapes product information and reviews from an Amazon product page.
@@ -399,12 +400,14 @@ export async function scrapeAmazonProduct(
   const STAR_RULE = 1;
   const END_RULE = 2 * totalCategoryNode;
 
+  const categoryHelper = new CategoryHelper();
   // Build the tree of category
-  let categoryHierarchy: CategoryNode = buildCategoryHierarchy(
+  let categoryHierarchy: CategoryNode = categoryHelper.buildCategoryHierarchy(
     filtratedCategories,
     STAR_RULE,
     END_RULE,
   );
+  
   categoryHierarchy.displayHierarchyAsJSON();
 
   // Percentage selling
@@ -513,7 +516,7 @@ export async function scrapeAmazonProduct(
       console.log("After navigate = ", comment_url);
 
       // Implement retry mechanism for page navigation
-      let retries = 3;
+      let retries = 5;
       let success = false;
 
       while (retries > 0 && !success) {
@@ -523,6 +526,7 @@ export async function scrapeAmazonProduct(
             timeout: 10000,
           }); // Timeout after 10 seconds
           success = true; // If navigation succeeds, break out of the loop
+          console.log(GREEN + "Success retry" + RESET)
         } catch (error) {
           console.error(
             `Navigation to ${comment_url} failed: ${error.message}. Retries left: ${retries - 1}`,

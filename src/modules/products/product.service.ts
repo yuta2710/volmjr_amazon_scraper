@@ -13,6 +13,7 @@ import CategoryNode, { saveCategoryHierarchy } from "../../shared/category";
 import { TablesInsert } from "../../shared/types/database.types";
 import { GREEN, RESET } from "../../shared/constants";
 import AmazonBaseProductRepository from "./product.repository";
+import AmazonCategoryRepository from "../category/category.repository";
 
 type BaseProductInsert = TablesInsert<"base_products">;
 type BaseCommentInsert = TablesInsert<"comments">;
@@ -27,6 +28,10 @@ type AmazonScrapingProductRequest = {
 };
 
 export default class BaseProductService {
+  private categoryRepository: AmazonCategoryRepository = new AmazonCategoryRepository(
+    String(process.env.SUPABASE_URL),
+    String(process.env.SUPABASE_ANON_KEY)
+  );
   private productRepository = new AmazonBaseProductRepository(
     String(process.env.SUPABASE_URL),
     String(process.env.SUPABASE_ANON_KEY),
@@ -53,9 +58,7 @@ export default class BaseProductService {
         console.error("Concac tao ne");
         let insertedCategoryId: number;
         try {
-          insertedCategoryId = await saveCategoryHierarchy(
-            scrapedDataResponse.category as CategoryNode,
-          );
+          insertedCategoryId = await this.categoryRepository.saveCategoryHierarchy(scrapedDataResponse.category as CategoryNode)
         } catch (error) {
           console.log(error);
         }
@@ -103,6 +106,7 @@ export default class BaseProductService {
 
           const productInsertData: BaseProductInsert = {
             // Map and validate your scraped data to the expected structure
+            asin: scrapedProductFromBrowser.asin,
             title: scrapedProductFromBrowser.title,
             url: scrapedProductFromBrowser.url,
             image: scrapedProductFromBrowser.image,
