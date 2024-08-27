@@ -41,7 +41,7 @@ export default class BaseProductService {
 
     if (scrapedDataResponse) {
       if (scrapedDataResponse.category) {
-        console.error("Concac tao ne")
+        console.error("Concac tao ne");
         const insertedCategoryId: number = await saveCategoryHierarchy(
           scrapedDataResponse.category as CategoryNode,
         );
@@ -53,16 +53,29 @@ export default class BaseProductService {
           const validatedPrice = {
             amount: scrapedDataResponse.product.price.amount ?? 0,
             currency: scrapedDataResponse.product.price.currency ?? "$",
-            displayAmount: scrapedDataResponse.product.price.displayAmount ?? "",
+            displayAmount:
+              scrapedDataResponse.product.price.displayAmount ?? "",
             currentPrice: scrapedDataResponse.product.price.currentPrice ?? 0,
-            originalPrice: scrapedDataResponse.product.price.originalPrice > 0 ? scrapedDataResponse.product.price.originalPrice : 0, // Ensure valid value or null
-            highestPrice: scrapedDataResponse.product.price.highestPrice > 0 ? scrapedDataResponse.product.price.highestPrice : 0, // Ensure valid value or null
+            originalPrice:
+              scrapedDataResponse.product.price.originalPrice > 0
+                ? scrapedDataResponse.product.price.originalPrice
+                : 0, // Ensure valid value or null
+            highestPrice:
+              scrapedDataResponse.product.price.highestPrice > 0
+                ? scrapedDataResponse.product.price.highestPrice
+                : 0, // Ensure valid value or null
             lowestPrice: scrapedDataResponse.product.price.lowestPrice ?? 0,
             savings: {
               amount: scrapedDataResponse.product.price.savings?.amount ?? 0,
-              currency: scrapedDataResponse.product.price.savings?.currency ?? "",
-              displayAmount: scrapedDataResponse.product.price.savings?.displayAmount ?? "",
-              percentage: scrapedDataResponse.product.price.savings?.percentage?.replace("-", "") ?? "", // Handle empty strings
+              currency:
+                scrapedDataResponse.product.price.savings?.currency ?? "",
+              displayAmount:
+                scrapedDataResponse.product.price.savings?.displayAmount ?? "",
+              percentage:
+                scrapedDataResponse.product.price.savings?.percentage?.replace(
+                  "-",
+                  "",
+                ) ?? "", // Handle empty strings
             },
           };
 
@@ -100,6 +113,7 @@ export default class BaseProductService {
 
           let productId: number;
 
+          // Inserted products 
           try {
             const { data, error } = await supabase
               .from("base_products")
@@ -114,6 +128,7 @@ export default class BaseProductService {
             }
           } catch (error) {}
 
+          // Inserted bulk comments
           if (scrapedDataResponse.comments.length > 0) {
             const bulkCommentsInserts: BaseCommentInsert[] =
               scrapedDataResponse.comments.map((comment) => ({

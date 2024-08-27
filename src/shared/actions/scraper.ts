@@ -3,16 +3,17 @@ import { exec } from "child_process";
 import path from "path";
 import { AssemblyAI } from "assemblyai";
 import {
-  extractAsinFromUrl,
-  extractCommendLocationAndDate,
-  processStarRatings,
-  processNewlineSeparatedText,
-  ProductFieldExtractorFromUrl,
-  filtrateData,
+  filterAsinFromUrl,
+  filterLocationAndDateOfCommentItem,
+  filterStarRatings,
+  filterNewlineSeparatedText,
+  FilterProductAttributesFromUrl,
+  filterComponentsOfPrice,
+} from "./filter";
+import {
   analyzeSentiment,
   analyzeEmotionByScore,
-  extractComponentsOfPrice,
-} from "./pipeline";
+} from "./analyze";
 import { setTimeout as delayPage } from "node:timers/promises";
 import {
   BaseProduct,
@@ -197,9 +198,9 @@ export async function scrapeAmazonProduct(
 
     /**
      * TODO: ============================================================= Scrape the main data of the products ============================================================= */
-    const asin = extractAsinFromUrl(
+    const asin = filterAsinFromUrl(
       page.url(),
-      ProductFieldExtractorFromUrl.ASIN,
+      FilterProductAttributesFromUrl.ASIN,
     );
 
     const title = (
@@ -220,7 +221,7 @@ export async function scrapeAmazonProduct(
 
       if (priceText) {
         currentPrice = priceText;
-        currency = extractComponentsOfPrice(currentPrice)[0] as string;
+        currency = filterComponentsOfPrice(currentPrice)[0] as string;
       }
     } catch (error) {
       console.error("Price element not found or unable to extract price:");
@@ -313,9 +314,7 @@ export async function scrapeAmazonProduct(
     }
 
     const rawRatingStars: string = historamItemMapper[0];
-    const filtratedHistogramItems = processStarRatings(
-      rawRatingStars as string,
-    );
+    const filtratedHistogramItems = filterStarRatings(rawRatingStars as string);
 
     const selectedOption = await page.evaluate(() => {
       const selectElement = document.querySelector(
@@ -441,18 +440,18 @@ export async function scrapeAmazonProduct(
       asin,
       title,
       price: {
-        amount: extractComponentsOfPrice(currentPrice)[1] as number,
+        amount: filterComponentsOfPrice(currentPrice)[1] as number,
         currency,
         displayAmount: String(currentPrice),
-        currentPrice: extractComponentsOfPrice(currentPrice)[1] as number,
+        currentPrice: filterComponentsOfPrice(currentPrice)[1] as number,
         originalPrice: originalPriceMetric,
         highestPrice: originalPriceMetric,
-        lowestPrice: extractComponentsOfPrice(currentPrice)[1] as number,
+        lowestPrice: filterComponentsOfPrice(currentPrice)[1] as number,
         savings: {
           percentage: percentage !== undefined ? percentage : "",
           currency,
           displayAmount: String(currentPrice),
-          amount: extractComponentsOfPrice(currentPrice)[1] as number,
+          amount: filterComponentsOfPrice(currentPrice)[1] as number,
         },
       },
       histogram: filtratedHistogramItems,
@@ -629,7 +628,7 @@ async function scrapeCommentsRecursively(
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
 
-    const filtratedDescription = processNewlineSeparatedText(
+    const filtratedDescription = filterNewlineSeparatedText(
       description as string,
     );
 
@@ -657,7 +656,7 @@ async function scrapeCommentsRecursively(
     );
 
     // Steps to filter the data
-    const filtratedLocationAndDateAsList = extractCommendLocationAndDate(
+    const filtratedLocationAndDateAsList = filterLocationAndDateOfCommentItem(
       locationAndDateRawText,
     );
     const filtratedLocation = filtratedLocationAndDateAsList[0];
