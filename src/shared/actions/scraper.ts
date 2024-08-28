@@ -159,6 +159,9 @@ export async function scrapeAmazonProduct(
     }
   }
 
+  /**
+   * TODO: ============================================================= Attepmt sign in more times =============================================================
+   */
   async function attemptSignIn() {
     try {
       await page.waitForSelector("a[data-nav-ref='nav_ya_signin']", {
@@ -211,6 +214,7 @@ export async function scrapeAmazonProduct(
   }
 
   await checkAndSolveNormalCaptcha();
+
   // Attempt sign-in with retries
   let signInAttempts = 3;
   let signedIn = false;
@@ -230,10 +234,9 @@ export async function scrapeAmazonProduct(
     }
   }
 
-  /** 
+  /**
    * TODO: ============================================================= Process/Build the category hirarchy =============================================================
-  
-  */
+   */
   let categoryContainerSelectorList = await page.$$(
     "#wayfinding-breadcrumbs_feature_div ul > li",
   );
@@ -387,10 +390,10 @@ async function collectProductDataExceptForeignField(
       return el !== null;
     });
   } catch (error) {
-      console.error("Unable to select Amazon Choice selector");
+    console.error("Unable to select Amazon Choice selector");
   }
-  
-  console.error(`Is Amazon Choice: ${isAmazonChoice}`)
+
+  console.error(`Is Amazon Choice: ${isAmazonChoice}`);
 
   // Current price text
   let currentPrice: string;
@@ -592,12 +595,19 @@ async function collectProductDataExceptForeignField(
   return collectedProduct;
 }
 
+/**
+ * * Get best seller ranks from dynamic HTML Element .
+ * TODO: Get best seller ranks by dynamic UI.
+ * @param {Page} page - The Puppeteer page object representing the current browser tab.
+ * @returns {Promise<any[]>} A promise that resolves to the array of all collected comments.
+ */
 async function getBestSellerRankByHtmlElement(page: Page): Promise<{
   heading: string;
   attributeVal: string;
 }> {
   let bestSellerRankJson = { heading: "", attributeVal: "" };
   let bestSellerRankRegex: RegExp;
+
   // Try to select the Best Seller Ranks from the <ul> tag first
   try {
     const bestSellerRanksUlRawText = await page.$eval(
@@ -605,9 +615,8 @@ async function getBestSellerRankByHtmlElement(page: Page): Promise<{
       (el) => el.textContent.trim(),
     );
 
-    // console.error("Fuck Loi")
-    // console.error(bestSellerRanksUlRawText);
     bestSellerRankRegex = /Best Sellers Rank:\s*([\s\S]+?)Customer Reviews:/;
+
     // Apply the regex pattern to extract the Best Sellers Rank information
     const match = bestSellerRanksUlRawText.match(bestSellerRankRegex);
 
@@ -804,7 +813,7 @@ async function scrapeCommentsRecursively(
     ".a-pagination li:nth-child(2)",
     (el) => el.getAttribute("class"),
   );
-  
+
   // If next button is not disabled
   // If the next button is not disabled
   if (!nextButtonClass.includes("a-disabled a-last")) {
@@ -832,13 +841,15 @@ async function scrapeCommentsRecursively(
     pagination: {
       totalRecords: queryListOfComments.length,
       currentPage,
-      nextPage: nextPage.url && nextPage.metric ? nextPage : {url: "", metric: 1},
-      prevPage: prevPage.url && prevPage.metric ? prevPage : {url: "", metric: 1},
+      nextPage:
+        nextPage.url && nextPage.metric ? nextPage : { url: "", metric: 1 },
+      prevPage:
+        prevPage.url && prevPage.metric ? prevPage : { url: "", metric: 1 },
     },
   }));
 
-  console.error("Next page object")
-  console.log(nextPage)
+  console.error("Next page object");
+  console.log(nextPage);
 
   if (nextPage.url) {
     await page.goto(nextPage.url);
