@@ -121,3 +121,31 @@ export const filterBestSellerRanksInRawContent = (queryProductDetailsContainerRa
     }
     return bestSellerRankJson;
 }
+
+export const filterQueryType = (url: string): {
+  pageNumber: number | null,
+  reviewType: string | null,
+  sortBy: string | null 
+} => {
+  const regex = /(?:pageNumber=(\d+))|(?:reviewerType=([^&]+))|(?:sortBy=([^&]+))/g;
+  const matches = Array.from(url.matchAll(regex));
+  const params: any = {
+    pageNumber: null,
+    reviewerType: null,
+    sortBy: null,
+  };
+
+  matches.forEach((match: any) => {
+    if (match[1]) {
+      params.pageNumber = Number(match[1]);
+    }
+    if (match[2]) {
+      params.reviewerType = match[2];
+    }
+    if (match[3]) {
+      params.sortBy = match[3];
+    }
+  });
+
+  return params;
+}

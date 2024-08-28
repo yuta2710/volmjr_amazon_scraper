@@ -31,24 +31,25 @@ const removeNonAlpha = (text: string) => {
 
 const filterTextDataForSentimentAnalysis = (data: string) => {
   const lexData = convertToStandard(data);
-  console.log("Lexed Data: ", lexData);
-
+  
   // Convert all data to lowercase
   const lowerCaseData = convertTolowerCase(lexData);
-  console.log("LowerCase Format: ", lowerCaseData);
-
+  
   // Remove non alphabets and special characters
   const onlyAlpha = removeNonAlpha(lowerCaseData);
-  console.log("OnlyAlpha: ", onlyAlpha);
-
+  
   // Tokenization
   const tokenConstructor = new natural.WordTokenizer();
   const tokenizedData = tokenConstructor.tokenize(onlyAlpha);
-  console.log("Tokenized Data: ", tokenizedData);
 
   // Remove Stopwords
   const filteredData = stopword.removeStopwords(tokenizedData);
-  console.log("After removing stopwords: ", filteredData);
+
+  // console.log("Lexed Data: ", lexData);
+  // console.log("LowerCase Format: ", lowerCaseData);
+  // console.log("OnlyAlpha: ", onlyAlpha);
+  // console.log("Tokenized Data: ", tokenizedData);
+  // console.log("After removing stopwords: ", filteredData);
 
   return filteredData
 };

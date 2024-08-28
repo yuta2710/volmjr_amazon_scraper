@@ -10,6 +10,7 @@ import {
   FilterProductAttributesFromUrl,
   filterComponentsOfPrice,
   filterCategoryAsListByHtml,
+  filterQueryType,
 } from "./filter";
 import { analyzeSentiment, analyzeEmotionByScore } from "./analyze";
 import {
@@ -82,13 +83,13 @@ export async function scrapeAmazonProduct(
             .waitForNavigation({ waitUntil: "domcontentloaded" })
             .catch(console.error);
 
-          console.log("Captcha solved and form submitted.");
+          console.log("Normal captcha solved and form submitted.");
         });
       } else {
-        console.info("Captcha not detected, proceeding to login...");
+        console.error("Normal captcha not detected, proceeding to login...");
       }
     } catch (err) {
-      console.error("Error handling captcha:", err.message);
+      console.error("Error handling normal captcha:", err.message);
     }
   }
   // Function to check for the presence of the captcha
@@ -148,10 +149,10 @@ export async function scrapeAmazonProduct(
       }
     } catch (err) {
       if (err.name === "TimeoutError") {
-        console.info("Captcha Audio not detected, continuing...");
+        console.error("Captcha Audio not detected, continuing...");
         // If captcha is not detected, proceed as normal
       } else {
-        console.error("Error handling captcha:", err.message);
+        console.error("Error handling audio captcha:", err.message);
         // Handle other errors as needed, possibly retry or log them
       }
     }
@@ -265,17 +266,17 @@ export async function scrapeAmazonProduct(
       // Implement retry mechanism for page navigation
       let retries = 3;
       let success = false;
-      
+
       while (retries > 0 && !success) {
         try {
           await page.goto(comment_url, {
             waitUntil: "domcontentloaded",
             timeout: 10000,
           }); // Timeout after 10 seconds
-      
+
           // Explicitly wait for an expected element on the comments page
-          await page.waitForSelector('.a-section.review', { timeout: 5000 });
-      
+          await page.waitForSelector(".a-section.review", { timeout: 5000 });
+
           success = true; // If navigation and element detection succeed, break out of the loop
           console.log(GREEN + "Success retry" + RESET);
         } catch (error) {
@@ -288,10 +289,9 @@ export async function scrapeAmazonProduct(
               "Failed to navigate to comments after multiple attempts.",
             );
           }
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Add a small delay between retries
+          await new Promise((resolve) => setTimeout(resolve, 2000)); // Add a small delay between retries
         }
       }
-      
 
       /**
        * TODO: ============================================================= Steps to scrape the comments ============================================================= */
@@ -586,11 +586,11 @@ async function getBestSellerRankByHtmlElement(page: Page): Promise<{
   try {
     const bestSellerRanksUlRawText = await page.$eval(
       "#detailBulletsWrapper_feature_div",
-      el => el.textContent.trim()
+      (el) => el.textContent.trim(),
     );
 
-    console.error("Fuck Loi")
-    console.error(bestSellerRanksUlRawText);
+    // console.error("Fuck Loi")
+    // console.error(bestSellerRanksUlRawText);
     bestSellerRankRegex = /Best Sellers Rank:\s*([\s\S]+?)Customer Reviews:/;
     // Apply the regex pattern to extract the Best Sellers Rank information
     const match = bestSellerRanksUlRawText.match(bestSellerRankRegex);
@@ -605,7 +605,7 @@ async function getBestSellerRankByHtmlElement(page: Page): Promise<{
       return bestSellerRankJson;
     } else {
       console.log("Best Sellers Rank not found.");
-    }    
+    }
   } catch (error) {
     console.error("Error processing <ul> tag for Best Seller Ranks:");
   }
@@ -627,7 +627,7 @@ async function getBestSellerRankByHtmlElement(page: Page): Promise<{
         attributeVal: bestSellerRankMatch[1].trim(),
       };
     }
-    
+
     return bestSellerRankJson;
   } catch (error) {
     console.error("Error processing <table> tag for Best Seller Ranks");
@@ -636,7 +636,6 @@ async function getBestSellerRankByHtmlElement(page: Page): Promise<{
   // Return empty result if nothing is found
   return bestSellerRankJson;
 }
-
 
 /**
  * * Across multiple pages by navigating through the pagination.
@@ -658,7 +657,11 @@ async function scrapeCommentsRecursively(
     "div[data-hook='review']",
   );
 
-  console.log("Length of this list of comments = ", queryListOfComments.length);
+  console.error(
+    "\nLength of this list of comments = ",
+    queryListOfComments.length,
+  );
+  console.log("Comment URL of the page ", page.url());
 
   for (let i = 0; i < queryListOfComments.length; i++) {
     let commentItem: CommentItem;
@@ -752,25 +755,78 @@ async function scrapeCommentsRecursively(
     (el) => el.classList.contains("a-disabled"),
   );
 
-  console.log("Is = ", isNextButtonDisabled);
+  let prevButtonSelector;
 
+  let prevPage = {
+    url: "" as string,
+    metric: 1 as number,
+  };
+  let nextPage = {
+    url: "" as string,
+    metric: 1 as number,
+  };
+
+  try {
+    prevButtonSelector = await page.$(".a-pagination li:nth-child(1)");
+    let prevPageUrl = await prevButtonSelector.$eval("a", (el) =>
+      el.getAttribute("href"),
+    );
+    prevPageUrl = `https://${String(process.env.AMAZON_DOMAIN)}${prevPageUrl}`;
+
+    let prevPageMetric = filterQueryType(prevPageUrl)["pageNumber"] as number;
+
+    prevPage = {
+      url: prevPageUrl as string,
+      metric: prevPageMetric as number,
+    };
+  } catch (error) {
+    console.error("Prev button not found");
+  }
+
+  // Need to fix the logic of next button
   const nextButtonClass = await page.$eval(
     ".a-pagination li:nth-child(2)",
     (el) => el.getAttribute("class"),
   );
-  console.log("Class name of next button = ", nextButtonClass);
-
+  let nextPageUrl: string;
+  // If next button is not disabled
+  // If the next button is not disabled
   if (!nextButtonClass.includes("a-disabled a-last")) {
-    let nextButtonUrl: string = await page.$eval(
+    let nextPageUrl: string = await page.$eval(
       ".a-pagination li:nth-child(2) a",
       (el) => el.getAttribute("href"),
     );
-    nextButtonUrl = `https://${String(process.env.AMAZON_DOMAIN)}${nextButtonUrl}`;
+    nextPageUrl = `https://${String(process.env.AMAZON_DOMAIN)}${nextPageUrl}`;
+    const nextPageMetric = filterQueryType(String(nextPageUrl))[
+      "pageNumber"
+    ] as number;
 
-    console.log("Url");
-    console.log(nextButtonUrl);
-    await page.goto(nextButtonUrl);
-    // await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+    nextPage = {
+      url: nextPageUrl,
+      metric: nextPageMetric,
+    };
+  }
+
+  const currentPage = filterQueryType(String(page.url()))[
+    "pageNumber"
+  ] as number;
+
+  collectedComments = collectedComments.map((comment: CommentItem) => ({
+    ...comment,
+    pagination: {
+      totalRecords: queryListOfComments.length,
+      currentPage,
+      nextPage: nextPage.url && nextPage.metric ? nextPage : {url: "", metric: 1},
+      prevPage: prevPage,
+    },
+  }));
+
+  console.error("Next page object")
+  console.log(nextPage)
+
+  if (nextPage.url) {
+    await page.goto(nextPage.url);
+
     // Recursive call to scrape the next page
     return scrapeCommentsRecursively(page, collectedComments);
   } else {

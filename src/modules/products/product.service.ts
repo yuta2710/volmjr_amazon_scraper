@@ -49,8 +49,8 @@ export default class BaseProductService {
     const scrapedDataResponse: AmazonScrapedResponse =
       await scrapeAmazonProduct(url);
 
-    console.log("\n\nResponse");
-    console.log(scrapedDataResponse);
+    // console.log("\n\nResponse");
+    // console.log(scrapedDataResponse);
     console.log("\n\n");
 
     if (scrapedDataResponse) {
@@ -166,18 +166,19 @@ export default class BaseProductService {
             }
 
             const existingGroupCommentsFromDatabaseAsSet = new Set(
-              existingBulkCommentsFromDatabase.map(
-                (comment) =>
-                  `${comment.title}-${comment.content}-${comment.date}`,
+              existingBulkCommentsFromDatabase.map((comment) =>
+                `${comment.title}-${comment.content}-${new Date(comment.date).toISOString()}`,
               ),
             );
-
+          
             const filteredNewInsertedCommentsFromSet: CommentItem[] =
               scrapedCommentsFromBrowser.filter((comment) => {
-                const commentKey = `${comment.title}-${comment.content}-${comment.date}`;
+                const commentKey = `${comment.title}-${comment.content}-${new Date(
+                  comment.date,
+                ).toISOString()}`;
                 return !existingGroupCommentsFromDatabaseAsSet.has(commentKey);
               });
-
+            
             // Then: set id to the filtered list of comments that need to insert
             const bulkCommentsForInsert: BaseCommentInsert[] =
               filteredNewInsertedCommentsFromSet.map((comment) => ({
@@ -191,6 +192,7 @@ export default class BaseProductService {
                 location: comment.location,
                 url: comment.url,
                 sentiment: comment.sentiment, // Assuming sentiment is correctly formatted as JSON
+                pagination: comment.pagination
               }));
 
             try {

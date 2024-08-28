@@ -55,6 +55,18 @@ export type CommentItem = {
     score: number;
     emotion: string;
   };
+  pagination?: {
+   totalRecords?: number,
+   currentPage?: number,
+   nextPage?: {
+    url?: string;
+    metric?: number;
+   },
+   prevPage?: {
+    url?: string;
+    metric?: number;
+   },  
+ }
 };
 
 export type ProductHistogram = {

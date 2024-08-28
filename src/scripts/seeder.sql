@@ -104,7 +104,21 @@ CREATE TABLE comments (
     verified_purchase BOOLEAN NOT NULL,
     location TEXT NOT NULL,
     url TEXT NOT NULL,
-    -- next_page TEXT NOT NULL,
+    
+    pagination JSONB CHECK (
+        (pagination ? 'totalRecords' IS NOT TRUE OR jsonb_typeof(pagination->'totalRecords') = 'number') AND
+        (pagination ? 'currentPage' IS NOT TRUE OR jsonb_typeof(pagination->'currentPage') = 'number') AND
+        (pagination ? 'nextPage' IS NOT TRUE OR (
+            jsonb_typeof(pagination->'nextPage') = 'object' AND
+            (pagination->'nextPage' ? 'url' IS NOT TRUE OR jsonb_typeof(pagination->'nextPage'->'url') = 'string') AND
+            (pagination->'nextPage' ? 'metric' IS NOT TRUE OR jsonb_typeof(pagination->'nextPage'->'metric') = 'number')
+        )) AND
+        (pagination ? 'prevPage' IS NOT TRUE OR (
+            jsonb_typeof(pagination->'prevPage') = 'object' AND
+            (pagination->'prevPage' ? 'url' IS NOT TRUE OR jsonb_typeof(pagination->'prevPage'->'url') = 'string') AND
+            (pagination->'prevPage' ? 'metric' IS NOT TRUE OR jsonb_typeof(pagination->'prevPage'->'metric') = 'number')
+        ))
+    ),
 
     -- Sentiment JSONB with constraints
     sentiment JSONB NOT NULL CHECK (

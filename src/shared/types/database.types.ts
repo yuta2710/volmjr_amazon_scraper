@@ -119,6 +119,7 @@ export type Database = {
           helpful_count: string
           id: number
           location: string
+          pagination: Json | null
           product_id: number | null
           rating: string
           sentiment: Json
@@ -132,6 +133,7 @@ export type Database = {
           helpful_count: string
           id?: number
           location: string
+          pagination?: Json | null
           product_id?: number | null
           rating: string
           sentiment: Json
@@ -145,6 +147,7 @@ export type Database = {
           helpful_count?: string
           id?: number
           location?: string
+          pagination?: Json | null
           product_id?: number | null
           rating?: string
           sentiment?: Json
