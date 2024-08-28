@@ -63,7 +63,7 @@ export default class BaseProductService {
           console.log(error);
         }
 
-        console.error("\nProduct ID = ", insertedCategoryId);
+        console.error("\Category ID = ", insertedCategoryId);
 
         /**
          * TODO: Check condition exist of product
@@ -204,7 +204,9 @@ export default class BaseProductService {
               } else {
                 console.log("\nSuccessfully inserted bulk of comments:", data);
               }
-            } catch (error) {}
+            } catch (error) {
+              
+            }
           }
         }
       }

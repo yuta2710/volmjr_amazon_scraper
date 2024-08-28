@@ -36,7 +36,8 @@ export async function scrapeAmazonProduct(
 
   // const browser = await puppeteer.launch({ headless: true });
   const browser = await puppeteer.launch({
-    headless: Boolean(process.env.HEADLESS_MODE),
+    // headless: Boolean(process.env.HEADLESS_MODE),
+    headless: false,
   });
   const page = await browser.newPage();
   await page.goto(url).catch(console.error);
@@ -375,6 +376,21 @@ async function collectProductDataExceptForeignField(
   const title = (
     await page.$eval("#productTitle", (span) => span.textContent)
   ).trim();
+
+  let isAmazonChoice: boolean;
+
+  try {
+    isAmazonChoice = await page.evaluate(() => {
+      const el = document.querySelector(
+        ".a-size-small.aok-float-left.ac-badge-rectangle",
+      );
+      return el !== null;
+    });
+  } catch (error) {
+      console.error("Unable to select Amazon Choice selector");
+  }
+  
+  console.error(`Is Amazon Choice: ${isAmazonChoice}`)
 
   // Current price text
   let currentPrice: string;
@@ -788,7 +804,7 @@ async function scrapeCommentsRecursively(
     ".a-pagination li:nth-child(2)",
     (el) => el.getAttribute("class"),
   );
-  let nextPageUrl: string;
+  
   // If next button is not disabled
   // If the next button is not disabled
   if (!nextButtonClass.includes("a-disabled a-last")) {
@@ -817,7 +833,7 @@ async function scrapeCommentsRecursively(
       totalRecords: queryListOfComments.length,
       currentPage,
       nextPage: nextPage.url && nextPage.metric ? nextPage : {url: "", metric: 1},
-      prevPage: prevPage,
+      prevPage: prevPage.url && prevPage.metric ? prevPage : {url: "", metric: 1},
     },
   }));
 
