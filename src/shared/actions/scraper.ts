@@ -19,7 +19,6 @@ import {
   AmazonScrapedResponse,
 } from "@/modules/products/product.types";
 import {
-  CategoryHelper,
   CategoryNode,
 } from "../../modules/category/category.model";
 import { GREEN, RESET } from "../constants";
@@ -622,17 +621,14 @@ async function getBestSellerRankByHtmlElement(page: Page): Promise<{
 
     if (match) {
       const bestSellerRankText = match[1].trim();
-      const bestSellerRankJson = {
+      bestSellerRankJson = {
         heading: "Best Sellers Rank",
         attributeVal: bestSellerRankText,
       };
-      // console.log(bestSellerRankJson);
       return bestSellerRankJson;
-    } else {
-      console.log("Best Sellers Rank not found.");
     }
   } catch (error) {
-    console.error("Error processing <ul> tag for Best Seller Ranks:");
+    console.error("Error processing <ul> tag for Best Seller Ranks. Continuing to check table...");
   }
 
   // If the <ul> tag doesn't contain the Best Sellers Rank, check the <table> tag
@@ -651,11 +647,32 @@ async function getBestSellerRankByHtmlElement(page: Page): Promise<{
         heading: "Best Sellers Rank",
         attributeVal: bestSellerRankMatch[1].trim(),
       };
+      return bestSellerRankJson;
     }
-
-    return bestSellerRankJson;
   } catch (error) {
-    console.error("Error processing <table> tag for Best Seller Ranks");
+    console.error("Error processing <table> tag for Best Seller Ranks. Continuing to check div...");
+  }
+
+  // If neither the <ul> nor <table> tags contain the Best Sellers Rank, check the <div> tag
+  try {
+    const queryProductDetailsContainerRawText = await page.$eval(
+      "#productDetails_db_sections",
+      (el) => el.textContent.trim(),
+    );
+
+    const bestSellerRankMatch = queryProductDetailsContainerRawText.match(
+      /Best Sellers Rank\s+(#\d+[\s\S]+?)(?=\s+Date First Available)/,
+    );
+
+    if (bestSellerRankMatch) {
+      bestSellerRankJson = {
+        heading: "Best Sellers Rank",
+        attributeVal: bestSellerRankMatch[1].trim(),
+      };
+      return bestSellerRankJson;
+    } 
+  } catch (error) {
+    console.error("Error processing <div> tag for Best Seller Ranks.");
   }
 
   // Return empty result if nothing is found
