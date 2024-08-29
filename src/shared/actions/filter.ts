@@ -1,10 +1,14 @@
-import { CategoryHelper, CategoryNode } from "../../modules/category/category.model";
+import { BestSellerRank } from './../../modules/products/product.types';
+import {
+  CategoryHelper,
+  CategoryNode,
+} from "../../modules/category/category.model";
 import { ElementHandle } from "puppeteer";
 
 export enum FilterProductAttributesFromUrl {
   ASIN,
   NAME,
-};
+}
 
 export const filterNewlineSeparatedText = (rawText: string) => {
   return rawText
@@ -36,10 +40,12 @@ export const filterAsinFromUrl = (
 };
 
 export const filterComponentsOfPrice = (rawData: string): [string, number] => {
-  return [rawData.split("")[0], Number(rawData.replace("$", ""))]
-}
+  return [rawData.split("")[0], Number(rawData.replace("$", ""))];
+};
 
-export const filterLocationAndDateOfCommentItem = (rawData: string): string[] => {
+export const filterLocationAndDateOfCommentItem = (
+  rawData: string,
+): string[] => {
   const regex = /in the (.*?) on (.*)/;
   const match = rawData.match(regex);
 
@@ -73,7 +79,9 @@ export const filterStarRatings = (
   return ratingObj;
 };
 
-export const filterCategoryAsListByHtml = async(categoryContainerSelectorList: ElementHandle<HTMLLIElement>[]): Promise<CategoryNode> => {
+export const filterCategoryAsListByHtml = async (
+  categoryContainerSelectorList: ElementHandle<HTMLLIElement>[],
+): Promise<CategoryNode> => {
   let filtratedCategories: string[] = [];
 
   // Process the data in selector list
@@ -103,31 +111,37 @@ export const filterCategoryAsListByHtml = async(categoryContainerSelectorList: E
     END_RULE,
   );
 
-  return categoryHierarchy
-}
+  return categoryHierarchy;
+};
 
-export const filterBestSellerRanksInRawContent = (queryProductDetailsContainerRawText: string) => {
+export const filterBestSellerRanksInRawContent = (
+  queryProductDetailsContainerRawText: string,
+) => {
   let bestSellerRankJson = {
     heading: "",
-    attributeVal: ""
-  }
+    attributeVal: "",
+  };
   const bestSellerRankRegex =
-      /Best Sellers Rank:\s*([^]+?)\s*Customer Reviews:/;
-    // Match the text and extract the Best Sellers Rank information
-    const matches = queryProductDetailsContainerRawText.match(bestSellerRankRegex);
-    if (matches && matches[1]) {
-      bestSellerRankJson.heading = "Best Sellers Rank";
-      bestSellerRankJson.attributeVal = matches[1].trim();
-    }
-    return bestSellerRankJson;
-}
+    /Best Sellers Rank:\s*([^]+?)\s*Customer Reviews:/;
+  // Match the text and extract the Best Sellers Rank information
+  const matches =
+    queryProductDetailsContainerRawText.match(bestSellerRankRegex);
+  if (matches && matches[1]) {
+    bestSellerRankJson.heading = "Best Sellers Rank";
+    bestSellerRankJson.attributeVal = matches[1].trim();
+  }
+  return bestSellerRankJson;
+};
 
-export const filterQueryType = (url: string): {
-  pageNumber: number | null,
-  reviewType: string | null,
-  sortBy: string | null 
+export const filterQueryType = (
+  url: string,
+): {
+  pageNumber: number | null;
+  reviewType: string | null;
+  sortBy: string | null;
 } => {
-  const regex = /(?:pageNumber=(\d+))|(?:reviewerType=([^&]+))|(?:sortBy=([^&]+))/g;
+  const regex =
+    /(?:pageNumber=(\d+))|(?:reviewerType=([^&]+))|(?:sortBy=([^&]+))/g;
   const matches = Array.from(url.matchAll(regex));
   const params: any = {
     pageNumber: null,
@@ -148,4 +162,25 @@ export const filterQueryType = (url: string): {
   });
 
   return params;
-}
+};
+
+export const filterBestSellerRanks = (data: string[]): BestSellerRank[] => {
+  let filteredBestSellerRankings: BestSellerRank[] = data.map((rankString) => {
+    const rankMatch = rankString.match(/#(\d+)/);
+    const categoryMatch = rankString.match(/in\s+(.+?)(\s+\(See Top 100|\s*$)/);
+
+    return {
+      rank: rankMatch ? `#${rankMatch[1]}` : "",
+      categoryMarket: categoryMatch ? categoryMatch[1].trim() : "",
+    };
+  });
+
+  filteredBestSellerRankings =
+    filteredBestSellerRankings.length > 0
+      ? filteredBestSellerRankings.filter(
+          (category) => category.rank !== "" && category.categoryMarket !== "",
+        )
+      : [{ rank: "", categoryMarket: "" }] as BestSellerRank[];
+
+  return filteredBestSellerRankings;
+};

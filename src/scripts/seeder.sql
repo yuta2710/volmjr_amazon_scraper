@@ -79,7 +79,19 @@ CREATE TABLE base_products (
     is_out_of_stock BOOLEAN,
     brand TEXT,
     retailer TEXT DEFAULT 'Not Show',
-    best_seller_ranks TEXT[], -- Storing array of best seller ranks
+    best_seller_ranks JSONB NOT NULL DEFAULT '[]'::jsonb CHECK (
+        jsonb_typeof(best_seller_ranks) = 'array' AND
+        (
+            jsonb_array_length(best_seller_ranks) = 0 OR 
+            (
+                jsonb_typeof(best_seller_ranks->0) = 'object' AND
+                (best_seller_ranks->0 ? 'rank' IS FALSE OR jsonb_typeof(best_seller_ranks->0->'rank') = 'string') AND
+                (best_seller_ranks->0 ? 'categoryMarket' IS FALSE OR jsonb_typeof(best_seller_ranks->0->'categoryMarket') = 'string')
+            )
+        )
+    ),
+    is_amazon_choice BOOLEAN,
+    is_best_seller BOOLEAN,
     delivery_location TEXT,
     sales_volume_last_month TEXT DEFAULT 'Not Show',
     business_target_for_collecting TEXT

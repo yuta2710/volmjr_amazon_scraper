@@ -11,12 +11,14 @@ import {
   filterComponentsOfPrice,
   filterCategoryAsListByHtml,
   filterQueryType,
+  filterBestSellerRanks,
 } from "./filter";
 import { analyzeSentiment, analyzeEmotionByScore } from "./analyze";
 import {
   BaseProduct,
   CommentItem,
   AmazonScrapedResponse,
+  BestSellerRank,
 } from "@/modules/products/product.types";
 import {
   CategoryNode,
@@ -35,184 +37,13 @@ export async function scrapeAmazonProduct(
 
   // const browser = await puppeteer.launch({ headless: true });
   const browser = await puppeteer.launch({
-    // headless: Boolean(process.env.HEADLESS_MODE),
-    headless: false,
+    headless: Boolean(process.env.HEADLESS_MODE),
+    // headless: false,
   });
   const page = await browser.newPage();
   await page.goto(url).catch(console.error);
 
-  /**
-   * TODO: ============================================================= [AUTHENTICATION] - check Captcha Audio verification if it requires ============================================================= */
-  async function checkAndSolveNormalCaptcha() {
-    try {
-      const captchaPhotoSelector = "div.a-row.a-text-center > img";
-      const captchaPhotoRemoteUrl = await page.evaluate((selector) => {
-        const el = document.querySelector(selector);
-        return el ? el.getAttribute("src") : "";
-      }, captchaPhotoSelector);
-
-      if (captchaPhotoRemoteUrl) {
-        console.log("Captcha detected, solving...");
-
-        const executablePath = path.join(
-          __dirname,
-          "../../../src/scripts/normal+captcha.py",
-        );
-        const command = `python ${executablePath} ${captchaPhotoRemoteUrl}`;
-
-        exec(command, async (error, stdout, stderr) => {
-          if (error) {
-            console.error(`Error: ${error.message}`);
-            return;
-          }
-          if (stderr) {
-            console.error(`stderr: ${stderr}`);
-            return;
-          }
-          const captureValue = stdout.trim();
-
-          await page.waitForSelector("#captchacharacters").catch(console.error);
-          await page
-            .type("#captchacharacters", captureValue)
-            .catch(console.error);
-
-          const button = await page.$(".a-button-text");
-          await button.click().catch(console.error);
-
-          await page
-            .waitForNavigation({ waitUntil: "domcontentloaded" })
-            .catch(console.error);
-
-          console.log("Normal captcha solved and form submitted.");
-        });
-      } else {
-        console.error("Normal captcha not detected, proceeding to login...");
-      }
-    } catch (err) {
-      console.error("Error handling normal captcha:", err.message);
-    }
-  }
-  // Function to check for the presence of the captcha
-  async function checkAndHandleCaptchaAudio() {
-    const captchaSelector =
-      "a.a-link-normal.cvf-widget-link-alternative-captcha.cvf-widget-btn-val.cvf-widget-link-disable-target.captcha_refresh_link";
-
-    try {
-      const captchaElement = await page.waitForSelector(captchaSelector, {
-        timeout: 5000, // Wait up to 5 seconds for the captcha to appear
-      });
-
-      if (captchaElement) {
-        console.log("Captcha detected, handling audio captcha...");
-        await captchaElement.click();
-
-        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-        const audioUrl = await page.$eval("source[type='audio/ogg']", (el) =>
-          el.getAttribute("src"),
-        );
-        const client = new AssemblyAI({
-          apiKey: String(process.env.ASSEMBLY_AI_API_KEY),
-        });
-        const data = {
-          audio_url: audioUrl,
-        };
-        const getTranscript = async () => {
-          const transcript = await client.transcripts.transcribe(data);
-          return transcript.text;
-        };
-
-        const processedTranscript = await getTranscript();
-        const transcriptList = processedTranscript.split(" ");
-        const processedAudioCaptchaValue = transcriptList[
-          transcriptList.length - 1
-        ].replace(".", "");
-
-        console.log("Processed captcha value = ", processedAudioCaptchaValue);
-
-        await page.waitForSelector(
-          ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
-        );
-        await page.type(
-          ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
-          processedAudioCaptchaValue,
-        );
-
-        const continueCaptchaButton = await page.$(
-          ".a-button.a-button-span12.a-button-primary.cvf-widget-btn-captcha.cvf-widget-btn-verify-captcha",
-        );
-        if (continueCaptchaButton) {
-          await continueCaptchaButton.click();
-          await page.waitForNavigation({ waitUntil: "domcontentloaded" });
-        } else {
-          throw new Error("Continue button for captcha not found.");
-        }
-      }
-    } catch (err) {
-      if (err.name === "TimeoutError") {
-        console.error("Captcha Audio not detected, continuing...");
-        // If captcha is not detected, proceed as normal
-      } else {
-        console.error("Error handling audio captcha:", err.message);
-        // Handle other errors as needed, possibly retry or log them
-      }
-    }
-  }
-
-  /**
-   * TODO: ============================================================= Attepmt sign in more times =============================================================
-   */
-  async function attemptSignIn() {
-    try {
-      await page.waitForSelector("a[data-nav-ref='nav_ya_signin']", {
-        timeout: 10000, // wait up to 10 seconds
-      });
-      const signInButton = await page.$("a[data-nav-ref='nav_ya_signin']");
-
-      if (signInButton) {
-        await signInButton.click().catch(console.error);
-        await page
-          .waitForNavigation({ waitUntil: "domcontentloaded" })
-          .catch(console.error);
-
-        await page.waitForSelector("#ap_email").catch(console.error);
-        await page
-          .type("#ap_email", String(process.env.AMAZON_ACCOUNT_EMAIL))
-          .catch(console.error);
-        const continueButton = await page.$("#continue").catch(console.error);
-        if (continueButton) {
-          await continueButton.click().catch(console.error);
-        } else {
-          console.error("Continue button not found");
-        }
-
-        await page.waitForSelector("#ap_password").catch(console.error);
-        await page
-          .type("#ap_password", String(process.env.AMAZON_ACCOUNT_PASSWORD))
-          .catch(console.error);
-
-        const signInSubmitButton = await page
-          .$("#signInSubmit")
-          .catch(console.error);
-        if (signInSubmitButton) {
-          await signInSubmitButton.click().catch(console.error);
-          await page
-            .waitForNavigation({ waitUntil: "domcontentloaded" })
-            .catch(console.error);
-        } else {
-          console.error("Sign-in submit button not found");
-        }
-
-        // Call the captcha check function after sign-in attempt
-        await checkAndHandleCaptchaAudio();
-      } else {
-        console.error("Sign-in button not found");
-      }
-    } catch (err) {
-      console.error("Error during sign-in attempt:", err.message);
-    }
-  }
-
-  await checkAndSolveNormalCaptcha();
+  await checkAndSolveNormalCaptcha(page);
 
   // Attempt sign-in with retries
   let signInAttempts = 3;
@@ -220,7 +51,7 @@ export async function scrapeAmazonProduct(
 
   while (signInAttempts > 0 && !signedIn) {
     try {
-      await attemptSignIn();
+      await attemptSignIn(page as Page);
       signedIn = true;
     } catch (error) {
       console.error(
@@ -550,11 +381,14 @@ async function collectProductDataExceptForeignField(
   const bestSellerRankJson = await getBestSellerRankByHtmlElement(page);
   console.error("\n\nBest seller ranks test code = ", bestSellerRankJson);
 
-  const bestSellerRankAttributeArr: string[] =
+  const bestSellerRankArr: string[] =
     bestSellerRankJson["attributeVal"].split("   ");
 
   console.log("\nBest Seller Rank Array Attribute Values");
-  console.log(bestSellerRankAttributeArr);
+  console.log(bestSellerRankArr);
+
+  const filteredBestSellerRank: BestSellerRank[] = filterBestSellerRanks(bestSellerRankArr as string[]);
+  const isBestSeller: boolean = filteredBestSellerRank.some(ranking => ranking.rank === "#1")
 
   const image = (await page.$eval("img#landingImage", (el) =>
     el.getAttribute("src"),
@@ -585,7 +419,9 @@ async function collectProductDataExceptForeignField(
     retailer: retailerName,
     businessTargetForCollecting: "amazon",
     url: String(page.url()),
-    bestSellerRanks: bestSellerRankAttributeArr,
+    bestSellerRanks: filteredBestSellerRank,
+    isBestSeller,
+    isAmazonChoice: isAmazonChoice,
     isOutOfStock,
     brand: "Amazon",
     image,
@@ -876,5 +712,177 @@ async function scrapeCommentsRecursively(
   } else {
     // No more pages, return collected comments
     return collectedComments;
+  }
+}
+
+/**
+   * TODO: ============================================================= [AUTHENTICATION] - check Captcha Audio verification if it requires ============================================================= */
+async function checkAndSolveNormalCaptcha(page: Page) {
+  try {
+    const captchaPhotoSelector = "div.a-row.a-text-center > img";
+    const captchaPhotoRemoteUrl = await page.evaluate((selector) => {
+      const el = document.querySelector(selector);
+      return el ? el.getAttribute("src") : "";
+    }, captchaPhotoSelector);
+
+    if (captchaPhotoRemoteUrl) {
+      console.log("Captcha detected, solving...");
+
+      const executablePath = path.join(
+        __dirname,
+        "../../../src/scripts/normal+captcha.py",
+      );
+      const command = `python ${executablePath} ${captchaPhotoRemoteUrl}`;
+
+      exec(command, async (error, stdout, stderr) => {
+        if (error) {
+          console.error(`Error: ${error.message}`);
+          return;
+        }
+        if (stderr) {
+          console.error(`stderr: ${stderr}`);
+          return;
+        }
+        const captureValue = stdout.trim();
+
+        await page.waitForSelector("#captchacharacters").catch(console.error);
+        await page
+          .type("#captchacharacters", captureValue)
+          .catch(console.error);
+
+        const button = await page.$(".a-button-text");
+        await button.click().catch(console.error);
+
+        await page
+          .waitForNavigation({ waitUntil: "domcontentloaded" })
+          .catch(console.error);
+
+        console.log("Normal captcha solved and form submitted.");
+      });
+    } else {
+      console.error("Normal captcha not detected, proceeding to login...");
+    }
+  } catch (err) {
+    console.error("Error handling normal captcha:", err.message);
+  }
+}
+
+ /**
+   * TODO: ============================================================= Attepmt sign in more times =============================================================
+   */
+ async function attemptSignIn(page: Page) {
+  try {
+    await page.waitForSelector("a[data-nav-ref='nav_ya_signin']", {
+      timeout: 10000, // wait up to 10 seconds
+    });
+    const signInButton = await page.$("a[data-nav-ref='nav_ya_signin']");
+
+    if (signInButton) {
+      await signInButton.click().catch(console.error);
+      await page
+        .waitForNavigation({ waitUntil: "domcontentloaded" })
+        .catch(console.error);
+
+      await page.waitForSelector("#ap_email").catch(console.error);
+      await page
+        .type("#ap_email", String(process.env.AMAZON_ACCOUNT_EMAIL))
+        .catch(console.error);
+      const continueButton = await page.$("#continue").catch(console.error);
+      if (continueButton) {
+        await continueButton.click().catch(console.error);
+      } else {
+        console.error("Continue button not found");
+      }
+
+      await page.waitForSelector("#ap_password").catch(console.error);
+      await page
+        .type("#ap_password", String(process.env.AMAZON_ACCOUNT_PASSWORD))
+        .catch(console.error);
+
+      const signInSubmitButton = await page
+        .$("#signInSubmit")
+        .catch(console.error);
+      if (signInSubmitButton) {
+        await signInSubmitButton.click().catch(console.error);
+        await page
+          .waitForNavigation({ waitUntil: "domcontentloaded" })
+          .catch(console.error);
+      } else {
+        console.error("Sign-in submit button not found");
+      }
+
+      // Call the captcha check function after sign-in attempt
+      await checkAndHandleCaptchaAudio(page as Page);
+    } else {
+      console.error("Sign-in button not found");
+    }
+  } catch (err) {
+    console.error("Error during sign-in attempt:", err.message);
+  }
+}
+
+// Function to check for the presence of the captcha
+async function checkAndHandleCaptchaAudio(page: Page) {
+  const captchaSelector =
+    "a.a-link-normal.cvf-widget-link-alternative-captcha.cvf-widget-btn-val.cvf-widget-link-disable-target.captcha_refresh_link";
+
+  try {
+    const captchaElement = await page.waitForSelector(captchaSelector, {
+      timeout: 5000, // Wait up to 5 seconds for the captcha to appear
+    });
+
+    if (captchaElement) {
+      console.log("Captcha detected, handling audio captcha...");
+      await captchaElement.click();
+
+      await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+      const audioUrl = await page.$eval("source[type='audio/ogg']", (el) =>
+        el.getAttribute("src"),
+      );
+      const client = new AssemblyAI({
+        apiKey: String(process.env.ASSEMBLY_AI_API_KEY),
+      });
+      const data = {
+        audio_url: audioUrl,
+      };
+      const getTranscript = async () => {
+        const transcript = await client.transcripts.transcribe(data);
+        return transcript.text;
+      };
+
+      const processedTranscript = await getTranscript();
+      const transcriptList = processedTranscript.split(" ");
+      const processedAudioCaptchaValue = transcriptList[
+        transcriptList.length - 1
+      ].replace(".", "");
+
+      console.log("Processed captcha value = ", processedAudioCaptchaValue);
+
+      await page.waitForSelector(
+        ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
+      );
+      await page.type(
+        ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
+        processedAudioCaptchaValue,
+      );
+
+      const continueCaptchaButton = await page.$(
+        ".a-button.a-button-span12.a-button-primary.cvf-widget-btn-captcha.cvf-widget-btn-verify-captcha",
+      );
+      if (continueCaptchaButton) {
+        await continueCaptchaButton.click();
+        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+      } else {
+        throw new Error("Continue button for captcha not found.");
+      }
+    }
+  } catch (err) {
+    if (err.name === "TimeoutError") {
+      console.error("Captcha Audio not detected, continuing...");
+      // If captcha is not detected, proceed as normal
+    } else {
+      console.error("Error handling audio captcha:", err.message);
+      // Handle other errors as needed, possibly retry or log them
+    }
   }
 }

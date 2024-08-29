@@ -14,7 +14,7 @@ export type Database = {
           asin: string
           average_rating: number | null
           average_sentiment_analysis: Json
-          best_seller_ranks: string[] | null
+          best_seller_ranks: Json
           brand: string | null
           business_target_for_collecting: string | null
           category: number | null
@@ -22,6 +22,8 @@ export type Database = {
           histogram: Json
           id: number
           image: string | null
+          is_amazon_choice: boolean | null
+          is_best_seller: boolean | null
           is_out_of_stock: boolean | null
           number_of_comments: number | null
           price: Json
@@ -34,7 +36,7 @@ export type Database = {
           asin: string
           average_rating?: number | null
           average_sentiment_analysis: Json
-          best_seller_ranks?: string[] | null
+          best_seller_ranks?: Json
           brand?: string | null
           business_target_for_collecting?: string | null
           category?: number | null
@@ -42,6 +44,8 @@ export type Database = {
           histogram: Json
           id?: number
           image?: string | null
+          is_amazon_choice?: boolean | null
+          is_best_seller?: boolean | null
           is_out_of_stock?: boolean | null
           number_of_comments?: number | null
           price: Json
@@ -54,7 +58,7 @@ export type Database = {
           asin?: string
           average_rating?: number | null
           average_sentiment_analysis?: Json
-          best_seller_ranks?: string[] | null
+          best_seller_ranks?: Json
           brand?: string | null
           business_target_for_collecting?: string | null
           category?: number | null
@@ -62,6 +66,8 @@ export type Database = {
           histogram?: Json
           id?: number
           image?: string | null
+          is_amazon_choice?: boolean | null
+          is_best_seller?: boolean | null
           is_out_of_stock?: boolean | null
           number_of_comments?: number | null
           price?: Json

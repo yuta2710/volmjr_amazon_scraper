@@ -30,7 +30,9 @@ export type BaseProduct = {
   isOutOfStock?: boolean;
   brand?: string;
   retailer?: string | "Not show";
-  bestSellerRanks?: string[];
+  bestSellerRanks?: BestSellerRank[];
+  isAmazonChoice?: boolean;
+  isBestSeller?: boolean;
   histogram?: { [key: string]: string },
   deliveryLocation?: string;
   salesVolumeLastMonth?: string | "Not show";
@@ -40,6 +42,11 @@ export type BaseProduct = {
   };
   businessTargetForCollecting?: string;
 };
+
+export type BestSellerRank = {
+  rank?: string;
+  categoryMarket?: string;
+}
 
 export type CommentItem = {
   title: string;

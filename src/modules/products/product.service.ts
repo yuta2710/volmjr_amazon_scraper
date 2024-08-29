@@ -28,10 +28,11 @@ type AmazonScrapingProductRequest = {
 };
 
 export default class BaseProductService {
-  private categoryRepository: AmazonCategoryRepository = new AmazonCategoryRepository(
-    String(process.env.SUPABASE_URL),
-    String(process.env.SUPABASE_ANON_KEY)
-  );
+  private categoryRepository: AmazonCategoryRepository =
+    new AmazonCategoryRepository(
+      String(process.env.SUPABASE_URL),
+      String(process.env.SUPABASE_ANON_KEY),
+    );
   private productRepository = new AmazonBaseProductRepository(
     String(process.env.SUPABASE_URL),
     String(process.env.SUPABASE_ANON_KEY),
@@ -58,12 +59,15 @@ export default class BaseProductService {
         console.error("Concac tao ne");
         let insertedCategoryId: number;
         try {
-          insertedCategoryId = await this.categoryRepository.saveCategoryHierarchy(scrapedDataResponse.category as CategoryNode)
+          insertedCategoryId =
+            await this.categoryRepository.saveCategoryHierarchy(
+              scrapedDataResponse.category as CategoryNode,
+            );
         } catch (error) {
           console.log(error);
         }
 
-        console.error("\Category ID = ", insertedCategoryId);
+        console.error("Category ID = ", insertedCategoryId);
 
         /**
          * TODO: Check condition exist of product
@@ -116,6 +120,8 @@ export default class BaseProductService {
               scrapedProductFromBrowser.averageSentimentAnalysis,
             best_seller_ranks:
               scrapedProductFromBrowser.bestSellerRanks ?? null,
+            is_amazon_choice: scrapedProductFromBrowser.isAmazonChoice,
+            is_best_seller: scrapedProductFromBrowser.isBestSeller,
             brand: scrapedProductFromBrowser.brand ?? null,
             business_target_for_collecting:
               scrapedProductFromBrowser.businessTargetForCollecting ?? null,
@@ -135,8 +141,10 @@ export default class BaseProductService {
           console.log(productInsertData);
 
           // Inserted a product
-          let newProductId: number = await this.productRepository.insertProduct(productInsertData as BaseProductInsert);
-      
+          let newProductId: number = await this.productRepository.insertProduct(
+            productInsertData as BaseProductInsert,
+          );
+
           // Inserted the bulk of comments
           /**
            * TODO: Check condition exist of comments
@@ -166,11 +174,12 @@ export default class BaseProductService {
             }
 
             const existingGroupCommentsFromDatabaseAsSet = new Set(
-              existingBulkCommentsFromDatabase.map((comment) =>
-                `${comment.title}-${comment.content}-${new Date(comment.date).toISOString()}`,
+              existingBulkCommentsFromDatabase.map(
+                (comment) =>
+                  `${comment.title}-${comment.content}-${new Date(comment.date).toISOString()}`,
               ),
             );
-          
+
             const filteredNewInsertedCommentsFromSet: CommentItem[] =
               scrapedCommentsFromBrowser.filter((comment) => {
                 const commentKey = `${comment.title}-${comment.content}-${new Date(
@@ -178,7 +187,7 @@ export default class BaseProductService {
                 ).toISOString()}`;
                 return !existingGroupCommentsFromDatabaseAsSet.has(commentKey);
               });
-            
+
             // Then: set id to the filtered list of comments that need to insert
             const bulkCommentsForInsert: BaseCommentInsert[] =
               filteredNewInsertedCommentsFromSet.map((comment) => ({
@@ -192,7 +201,7 @@ export default class BaseProductService {
                 location: comment.location,
                 url: comment.url,
                 sentiment: comment.sentiment, // Assuming sentiment is correctly formatted as JSON
-                pagination: comment.pagination
+                pagination: comment.pagination,
               }));
 
             try {
@@ -204,9 +213,7 @@ export default class BaseProductService {
               } else {
                 console.log("\nSuccessfully inserted bulk of comments:", data);
               }
-            } catch (error) {
-              
-            }
+            } catch (error) {}
           }
         }
       }

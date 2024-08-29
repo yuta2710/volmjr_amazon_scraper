@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "../../shared/types/database.types";
 import { BaseProductInsert } from "../../shared/types";
+import { BaseProduct } from "./product.types";
 
 export default class AmazonBaseProductRepository {
   private supabase: SupabaseClient<Database>;
@@ -18,9 +19,9 @@ export default class AmazonBaseProductRepository {
 
   async insertProduct(productInsertData: BaseProductInsert) {
     try {
-      const { data: existProductData, error: fetchError } = await this.supabase
+      const { error: fetchError } = await this.supabase
         .from("base_products")
-        .select("id")
+        .select()
         .eq("asin", productInsertData.asin)
         .single();
 
@@ -28,14 +29,10 @@ export default class AmazonBaseProductRepository {
         console.error('Error checking for existing product:', fetchError.message);
         return null;
       }
-      if (existProductData) {
-        console.info('Product already exists with ID:', existProductData.id);
-        return existProductData.id; // Return the existing product ID
-      }
       else{
         const { data, error } = await this.supabase
         .from("base_products")
-        .insert([productInsertData as BaseProductInsert])
+        .upsert([productInsertData as BaseProductInsert])
         .select();
 
       if (error) {
@@ -55,7 +52,7 @@ export default class AmazonBaseProductRepository {
     const { data, error } = await this.supabase
       .from("base_products")
       .select("*")
-      .eq("id", productId)
+      .eq("id", productId) 
       .single();
 
     if (error) {
