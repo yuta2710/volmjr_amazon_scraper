@@ -335,16 +335,6 @@ async function collectProductDataExceptForeignField(
   const rawRatingStars: string = historamItemMapper[0];
   const filtratedHistogramItems = filterStarRatings(rawRatingStars as string);
 
-  const selectedOption = await page.evaluate(() => {
-    const selectElement = document.querySelector(
-      "select.nav-search-dropdown.searchSelect.nav-progressive-attrubute.nav-progressive-search-dropdown",
-    );
-    const selectedOptionElement = selectElement.querySelector(
-      "option[selected = 'selected']",
-    );
-    return selectedOptionElement.textContent.trim(); // or use `.value` to get the value attribute
-  });
-
   // Out of stock
   let isOutOfStock: boolean | null;
 
@@ -361,10 +351,10 @@ async function collectProductDataExceptForeignField(
     isOutOfStock = false;
   }
 
-  console.log(colors.green("Is Out of Stock:"), isOutOfStock);
+  // console.log(colors.green("Is Out of Stock:"), isOutOfStock);
   // console.log(`\nHistogram Mapper have ${historamItemMapper.length} result`)
-  console.log(colors.green(`Metric of average rating = ${filtratedAverageRatingMetric}`));
-  console.log(colors.green("Original price = "), originalPrice);
+  // console.log(colors.green(`Metric of average rating = ${filtratedAverageRatingMetric}`));
+  // console.log(colors.green("Original price = "), originalPrice);
 
   // Percentage selling
   let percentage: string | null;

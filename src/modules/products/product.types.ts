@@ -33,7 +33,7 @@ export type BaseProduct = {
   bestSellerRanks?: BestSellerRank[];
   isAmazonChoice?: boolean;
   isBestSeller?: boolean;
-  histogram?: { [key: string]: string },
+  histogram?: { [key: string]: string };
   deliveryLocation?: string;
   salesVolumeLastMonth?: string | "Not show";
   averageSentimentAnalysis?: {

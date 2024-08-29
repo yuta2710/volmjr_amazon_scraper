@@ -1,3 +1,4 @@
+import colors from 'colors';
 // import { supabase } from "../../../cores/db/supabase";
 import { NextFunction, Request, Response } from "express";
 
@@ -11,7 +12,6 @@ import {
 } from "./product.types";
 import CategoryNode, { saveCategoryHierarchy } from "../../shared/category";
 import { TablesInsert } from "../../shared/types/database.types";
-import { GREEN, RESET } from "../../shared/constants";
 import AmazonBaseProductRepository from "./product.repository";
 import AmazonCategoryRepository from "../category/category.repository";
 
@@ -43,20 +43,17 @@ export default class BaseProductService {
     res: Response,
     next: NextFunction,
   ): Promise<
-    { message: "Created product on supabase successfully" } | Error
+    void
   > => {
     // return new Promise();
     const { url } = req.body as AmazonScrapingProductRequest;
     const scrapedDataResponse: AmazonScrapedResponse =
       await scrapeAmazonProduct(url);
 
-    // console.log("\n\nResponse");
-    // console.log(scrapedDataResponse);
     console.log("\n\n");
 
     if (scrapedDataResponse) {
       if (scrapedDataResponse.category) {
-        console.error("Concac tao ne");
         let insertedCategoryId: number;
         try {
           insertedCategoryId =
@@ -105,7 +102,7 @@ export default class BaseProductService {
             },
           };
 
-          console.error(GREEN + "\nValidated Price" + RESET);
+          console.error(colors.cyan("Validated Price"));
           console.log(validatedPrice);
 
           const productInsertData: BaseProductInsert = {
@@ -137,7 +134,7 @@ export default class BaseProductService {
               scrapedProductFromBrowser.salesVolumeLastMonth ?? null,
           };
 
-          console.log("\nBased inserted product data");
+          console.log(colors.cyan("\nBased inserted product data"));
           console.log(productInsertData);
 
           // Inserted a product
@@ -218,8 +215,19 @@ export default class BaseProductService {
         }
       }
     }
-    return null;
+    res.status(200).json({
+      success: true,
+      message: "Scraped data successfully",
+      counting: {
+        product: scrapedDataResponse.product.asin,
+        numberOfComments: scrapedDataResponse.comments.length, 
+      }
+    });
   };
+
+  // getAllProducts = (): Promise<BaseProduct[]> {
+
+  // }
 
   getProductById = async (req: Request, res: Response, next: NextFunction) => {
     try {
