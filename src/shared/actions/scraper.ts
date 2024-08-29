@@ -23,7 +23,7 @@ import {
 import {
   CategoryNode,
 } from "../../modules/category/category.model";
-import { GREEN, RESET } from "../constants";
+import colors from "colors"
 
 /**
  * Scrapes product information and reviews from an Amazon product page.
@@ -95,7 +95,7 @@ export async function scrapeAmazonProduct(
       }); // Timeout after 10 seconds
 
       const comment_url = `${page.url()}&sortBy=recent&pageNumber=1`;
-      console.log("After navigate = ", comment_url);
+      console.log(colors.cyan("After navigate = "), comment_url);
 
       // Implement retry mechanism for page navigation
       let retries = 3;
@@ -112,7 +112,7 @@ export async function scrapeAmazonProduct(
           await page.waitForSelector(".a-section.review", { timeout: 5000 });
 
           success = true; // If navigation and element detection succeed, break out of the loop
-          console.log(GREEN + "Success retry" + RESET);
+          console.log(colors.green("Success retry"));
         } catch (error) {
           console.error(
             `Navigation to ${comment_url} failed: ${error.message}. Retries left: ${retries - 1}`,
@@ -131,7 +131,7 @@ export async function scrapeAmazonProduct(
        * TODO: ============================================================= Steps to scrape the comments ============================================================= */
       const collectedComments: CommentItem[] =
         await scrapeCommentsRecursively(page);
-      console.log("Total collected comments:", collectedComments.length);
+      console.log(colors.green("Total collected comments:"), collectedComments.length);
 
       // Update the amount of comments
       scrapedProduct.numberOfComments = collectedComments.length;
@@ -355,10 +355,10 @@ async function collectProductDataExceptForeignField(
     isOutOfStock = false;
   }
 
-  console.log("Is Out of Stock:", isOutOfStock);
+  console.log(colors.green("Is Out of Stock:"), isOutOfStock);
   // console.log(`\nHistogram Mapper have ${historamItemMapper.length} result`)
-  console.log(`Metric of average rating = ${filtratedAverageRatingMetric}`);
-  console.log("Original price = ", originalPrice);
+  console.log(colors.green(`Metric of average rating = ${filtratedAverageRatingMetric}`));
+  console.log(colors.green("Original price = "), originalPrice);
 
   // Percentage selling
   let percentage: string | null;
@@ -375,11 +375,11 @@ async function collectProductDataExceptForeignField(
       percentage = percentageText;
     }
   } catch (error) {
-    console.warn("\nPercentage not displayed");
+    console.log(colors.red("\nPercentage currently not available to display"));
   }
 
   const bestSellerRankJson = await getBestSellerRankByHtmlElement(page);
-  console.error("\n\nBest seller ranks test code = ", bestSellerRankJson);
+  console.log(colors.cyan("\n\nBest seller ranks in json format = "), bestSellerRankJson);
 
   const bestSellerRankArr: string[] =
     bestSellerRankJson["attributeVal"].split("   ");
@@ -535,11 +535,11 @@ async function scrapeCommentsRecursively(
     "div[data-hook='review']",
   );
 
-  console.error(
-    "\nLength of this list of comments = ",
+  console.log(
+    colors.cyan("\nLength of this list of comments = "),
     queryListOfComments.length,
   );
-  console.log("Comment URL of the page ", page.url());
+  console.log(colors.magenta("Comment URL of the page "), page.url());
 
   for (let i = 0; i < queryListOfComments.length; i++) {
     let commentItem: CommentItem;
@@ -701,7 +701,7 @@ async function scrapeCommentsRecursively(
     },
   }));
 
-  console.error("Next page object");
+  console.log(colors.magenta("Next page object"));
   console.log(nextPage);
 
   if (nextPage.url) {
@@ -726,7 +726,7 @@ async function checkAndSolveNormalCaptcha(page: Page) {
     }, captchaPhotoSelector);
 
     if (captchaPhotoRemoteUrl) {
-      console.log("Captcha detected, solving...");
+      console.log(colors.yellow("Captcha detected, solving..."));
 
       const executablePath = path.join(
         __dirname,
@@ -757,10 +757,10 @@ async function checkAndSolveNormalCaptcha(page: Page) {
           .waitForNavigation({ waitUntil: "domcontentloaded" })
           .catch(console.error);
 
-        console.log("Normal captcha solved and form submitted.");
+        console.log(colors.green("Normal captcha solved and form submitted."));
       });
     } else {
-      console.error("Normal captcha not detected, proceeding to login...");
+      console.log(colors.yellow("Normal captcha not detected, proceeding to login..."));
     }
   } catch (err) {
     console.error("Error handling normal captcha:", err.message);
@@ -832,7 +832,7 @@ async function checkAndHandleCaptchaAudio(page: Page) {
     });
 
     if (captchaElement) {
-      console.log("Captcha detected, handling audio captcha...");
+      console.log(colors.yellow("Captcha detected, handling audio captcha..."));
       await captchaElement.click();
 
       await page.waitForNavigation({ waitUntil: "domcontentloaded" });
@@ -856,7 +856,7 @@ async function checkAndHandleCaptchaAudio(page: Page) {
         transcriptList.length - 1
       ].replace(".", "");
 
-      console.log("Processed captcha value = ", processedAudioCaptchaValue);
+      console.log(colors.green("Processed captcha value = "), processedAudioCaptchaValue);
 
       await page.waitForSelector(
         ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
@@ -878,10 +878,10 @@ async function checkAndHandleCaptchaAudio(page: Page) {
     }
   } catch (err) {
     if (err.name === "TimeoutError") {
-      console.error("Captcha Audio not detected, continuing...");
+      console.log(colors.green("Captcha Audio not detected, continuing..."));
       // If captcha is not detected, proceed as normal
     } else {
-      console.error("Error handling audio captcha:", err.message);
+      console.log(colors.red("Error handling audio captcha:"));
       // Handle other errors as needed, possibly retry or log them
     }
   }
