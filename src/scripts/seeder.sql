@@ -142,6 +142,7 @@ CREATE TABLE comments (
 );
 
 CREATE INDEX comments_product_id_idx ON comments(product_id);
+ALTER TABLE base_products ADD CONSTRAINT unique_asin UNIQUE (asin);
 
 -- supabase gen types typescript --project-id pbrravmvyawomfjjzhde > database.types.ts
 -- TRUNCATE TABLE base_products, comments, category RESTART IDENTITY;

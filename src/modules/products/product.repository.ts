@@ -32,7 +32,7 @@ export default class AmazonBaseProductRepository {
       else{
         const { data, error } = await this.supabase
         .from("base_products")
-        .upsert([productInsertData as BaseProductInsert])
+        .upsert([productInsertData as BaseProductInsert], {onConflict: "asin"})
         .select();
 
       if (error) {

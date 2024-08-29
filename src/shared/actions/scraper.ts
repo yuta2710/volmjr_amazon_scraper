@@ -195,6 +195,7 @@ export async function scrapeAmazonProduct(
   // https://www.amazon.com/Tanisa-Organic-Spring-Paper-Wrapper/product-reviews/B07KXPKRNK/ref=cm_cr_arp_d_viewpnt_lft?ie=UTF8&reviewerType=all_reviews&filterByStar=all_stars&pageNumber=1
 }
 
+
 async function collectProductDataExceptForeignField(
   page: Page,
   collectedProduct: BaseProduct = null,
@@ -276,16 +277,21 @@ async function collectProductDataExceptForeignField(
   const filtratedAverageRatingMetric = Number(averageRatingText.split(" ")[0]);
 
   // Delivery location
-  const deliveryLocation = (
+  let deliveryLocation: string = (
     await page.$eval(
       "span.nav-line-2.nav-progressive-content",
       (el) => el.textContent,
     )
   ).trim();
 
+  if(deliveryLocation === "United States Min...") {
+    deliveryLocation = "United States Minor Outlying Islands";
+  }
+
   const retailerElement = await page.$(
-    "span.a-size-small.offer-display-feature-text-message",
+    "#sellerProfileTriggerId",
   );
+
   let retailerName: string | null = null;
 
   if (retailerElement) {
