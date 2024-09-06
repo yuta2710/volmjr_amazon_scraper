@@ -2,6 +2,7 @@ import { WORD_DICT } from "../constants";
 import * as natural from "natural";
 import * as stopword from "stopword";
 import { CommentItem } from "../types";
+import colors from "colors";
 // import lemmatizer from "wink-lemmatizer";
 
 const convertToStandard = (text: string) => {
@@ -33,7 +34,29 @@ const filterTextDataForSentimentAnalysis = (data: string) => {
   const lexData = convertToStandard(data);
 
   // Convert all data to lowercase
-  const lowerCaseData = convertTolowerCase(lexData);
+  let lowerCaseData = convertTolowerCase(lexData);
+
+  if(lowerCaseData.includes("10/10")){
+    lowerCaseData = "Perfect";
+  }
+  if(lowerCaseData.includes("9/10")){
+    lowerCaseData = "Very good";
+  }
+  if(lowerCaseData.includes("8/10")){
+    lowerCaseData = "Good";
+  }
+  if(lowerCaseData.includes("1/10") || lowerCaseData.includes("2/10")){
+    lowerCaseData = "Very worst";
+  }
+  if(lowerCaseData.includes("3/10")){
+    lowerCaseData = "Very bad"
+  }
+  if(lowerCaseData.includes("4/10")){
+    lowerCaseData = "Bad";
+  }
+  if(lowerCaseData.includes("5/10")){
+    lowerCaseData = "Not really good but still be able to use this product";
+  }
 
   // Remove non alphabets and special characters
   const onlyAlpha = removeNonAlpha(lowerCaseData);
@@ -44,14 +67,18 @@ const filterTextDataForSentimentAnalysis = (data: string) => {
 
   // Remove Stopwords
   const filteredData = stopword.removeStopwords(tokenizedData);
+
   return filteredData;
 };
 
 export const analyzeSentiment = (
   data: string
 ): { score: number; emotion: string } => {
+  // console.log(`Data for sentiment analysis: ${data}`);
   // Remove Stopwords
   const filteredData: string[] = filterTextDataForSentimentAnalysis(data);
+
+  // console.log(colors.cyan("Filtered Data = ") + filteredData)
   const SentimentAnalyzer = new natural.SentimentAnalyzer(
     "English",
     natural.PorterStemmer,

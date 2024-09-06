@@ -4,6 +4,9 @@ import {
 } from "../../modules/category/category.model";
 import { ElementHandle } from "puppeteer";
 import { BestSellerRank, CamelPriceComparison } from "../types";
+import { exec } from "child_process";
+import path from "path";
+import util from "util"
 
 export enum FilterProductAttributesFromUrl {
   ASIN,
@@ -253,9 +256,6 @@ export const filterComparisonPriceTextFromCamel = (
       };
     }
 
-    console.log("Result of price");
-    console.log(result);
-
     return result;
   } else {
     console.log("No match found.");
@@ -278,3 +278,5 @@ export const incrementDayByString = (rawStr: string): string => {
 
   return incrementedDateString;
 };
+
+

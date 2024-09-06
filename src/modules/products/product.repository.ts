@@ -38,7 +38,7 @@ export default class AmazonBaseProductRepository {
       if (error) {
         console.error("Error inserting product:", error.message);
       } else {
-        console.info("Product inserted successfully:", data);
+        // console.info("Product inserted successfully:", data);
         return data[0].id;
       }
       }

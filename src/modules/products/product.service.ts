@@ -14,6 +14,7 @@ import {CategoryNode} from "../category/category.model";
 import { TablesInsert } from "../../shared/types/database.types";
 import AmazonBaseProductRepository from "./product.repository";
 import AmazonCategoryRepository from "../category/category.repository";
+import CommentRepository from "../comments/comment.repository";
 
 type BaseProductInsert = TablesInsert<"base_products">;
 type BaseCommentInsert = TablesInsert<"comments">;
@@ -38,6 +39,11 @@ export default class BaseProductService {
     String(process.env.SUPABASE_ANON_KEY),
   );
 
+  private commentRepository = new CommentRepository(
+    String(process.env.SUPABASE_URL),
+    String(process.env.SUPABASE_ANON_KEY)
+  )
+
   createProduct = async (
     req: Request,
     res: Response,
@@ -47,24 +53,14 @@ export default class BaseProductService {
     const { url } = req.body as AmazonScrapingProductRequest;
     const scrapedDataResponse: AmazonScrapedResponse | null =
       await scrapeAmazonProduct(url as string);
-    const categoryRepository: AmazonCategoryRepository =
-      new AmazonCategoryRepository(
-        String(process.env.NEXT_PUBLIC_SUPABASE_URL),
-        String(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
-      );
-    const productRepository = new AmazonBaseProductRepository(
-      String(process.env.NEXT_PUBLIC_SUPABASE_URL),
-      String(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
-    );
+
     let newProductId: number;
     let insertedCategoryId: number | null = null;
 
     if (scrapedDataResponse) {
       if (scrapedDataResponse.category) {
-        console.log("\n\nScraped category");
-        console.log(scrapedDataResponse.category);
         try {
-          insertedCategoryId = await categoryRepository.saveCategoryHierarchy(
+          insertedCategoryId = await this.categoryRepository.saveCategoryHierarchy(
             scrapedDataResponse.category as CategoryNode,
           );
         } catch (error) {
@@ -85,29 +81,7 @@ export default class BaseProductService {
         if (insertedCategoryId) {
           scrapedProductFromBrowser.category = insertedCategoryId as number;
         }
-        // console.log(validatedPrice);
-        // const validatedPrice = {
-        //   amount: scrapedProductFromBrowser.price.amount ?? 0,
-        //   currency: scrapedProductFromBrowser.price.currency ?? "$",
-        //   displayAmount: scrapedProductFromBrowser.price.displayAmount ?? "",
-        //   originalPrice:
-        //     scrapedProductFromBrowser.price.originalPrice > 0
-        //       ? scrapedProductFromBrowser.price.originalPrice
-        //       : 0, // Ensure valid value or null
-        //   priceHistory: scrapedProductFromBrowser.priceHistory,
-        //   savings: {
-        //     amount: scrapedProductFromBrowser.price.savings?.amount ?? 0,
-        //     currency: scrapedProductFromBrowser.price.savings?.currency ?? "",
-        //     displayAmount:
-        //       scrapedProductFromBrowser.price.savings?.displayAmount ?? "",
-        //     percentage:
-        //       scrapedProductFromBrowser.price.savings?.percentage?.replace(
-        //         "-",
-        //         "",
-        //       ) ?? "", // Handle empty strings
-        //   },
-        // },
-
+        
         const productInsertData: BaseProductInsert = {
           // Map and validate your scraped data to the expected structure
           asin: scrapedProductFromBrowser.asin,
@@ -158,7 +132,7 @@ export default class BaseProductService {
         };
 
         // Inserted a product
-        newProductId = await productRepository.insertProduct(
+        newProductId = await this.productRepository.insertProduct(
           productInsertData as BaseProductInsert,
         );
 
@@ -170,68 +144,9 @@ export default class BaseProductService {
       if (scrapedDataResponse.comments.length > 0) {
         const scrapedCommentsFromBrowser =
           scrapedDataResponse.comments as CommentItem[];
+          
         // Check bulk comment exists from database
-        const { data: existingBulkCommentsFromDatabase, error: fetchError } =
-          await supabase
-            .from("comments")
-            .select("id, title, content, date")
-            .eq("product_id", newProductId);
-
-        if (fetchError) {
-          console.error(
-            "Error fetching existing comments:",
-            fetchError.message,
-          );
-        } else {
-          console.log(
-            "There is an existing list of comments:",
-            existingBulkCommentsFromDatabase.length,
-          );
-        }
-
-        const existingGroupCommentsFromDatabaseAsSet = new Set(
-          existingBulkCommentsFromDatabase.map(
-            (comment) =>
-              `${comment.title}-${comment.content}-${new Date(
-                comment.date,
-              ).toISOString()}`,
-          ),
-        );
-
-        const filteredNewInsertedCommentsFromSet: CommentItem[] =
-          scrapedCommentsFromBrowser.filter((comment) => {
-            const commentKey = `${comment.title}-${comment.content}-${new Date(
-              comment.date,
-            ).toISOString()}`;
-            return !existingGroupCommentsFromDatabaseAsSet.has(commentKey);
-          });
-
-        // Then: set id to the filtered list of comments that need to insert
-        const bulkCommentsForInsert: BaseCommentInsert[] =
-          filteredNewInsertedCommentsFromSet.map((comment) => ({
-            title: comment.title,
-            content: comment.content,
-            date: comment.date,
-            product_id: newProductId, // Adjust according to your schema
-            helpful_count: comment.helpfulCount,
-            rating: comment.rating,
-            verified_purchase: comment.isVerifiedPurchase,
-            location: comment.location,
-            url: comment.url,
-            sentiment: comment.sentiment, // Assuming sentiment is correctly formatted as JSON
-            pagination: comment.pagination,
-          }));
-
-        try {
-          const { data, error } = await supabase
-            .from("comments")
-            .insert(bulkCommentsForInsert);
-          if (error) {
-            console.error("Error inserting comments:", error.message);
-          } else {
-            console.log("\nSuccessfully inserted bulk of comments");
-          }
-        } catch (error) {}
+        await this.commentRepository.insertBulkCommentsToDb(scrapedCommentsFromBrowser, newProductId);
       }
     }
 

@@ -1,3 +1,4 @@
+import util from 'util';
 "use server";
 
 import puppeteer, { ElementHandle, Page } from "puppeteer";
@@ -27,6 +28,11 @@ import {
 import { CategoryNode } from "../../modules/category/category.model";
 import colors from "colors";
 import { retrieveProductPriceHistoryGroup } from "./camel+browser";
+// const translate = require("translate")
+// const translate = await import('translate');
+const execPromise = util.promisify(exec);
+
+
 /**
  * Scrapes product information and reviews from an Amazon product page.
  *
@@ -43,7 +49,7 @@ export async function scrapeAmazonProduct(
     headless: true,
   });
   const page = await browser.newPage();
-  await page.goto(url);
+  await page.goto(url, {waitUntil: "load"});
 
   await checkAndSolveNormalCaptcha(page);
 
@@ -104,15 +110,9 @@ export async function scrapeAmazonProduct(
   const priceHistoryGroup: CamelPriceComparison =
     await retrieveProductPriceHistoryGroup(scrapedProduct.asin);
 
-  console.log("Fucking bitch group");
-  console.log(priceHistoryGroup);
-
   if (priceHistoryGroup) {
     scrapedProduct.price.priceHistory = priceHistoryGroup as CamelPriceComparison;
   }
-
-  console.log("Oh shiet processed price");
-  console.log(scrapedProduct.price);
 
   // After format asin, title, price...., navigate to comment page
   // Wait for the review button to appear and be clickable
@@ -144,7 +144,7 @@ export async function scrapeAmazonProduct(
             }); // Timeout after 10 seconds
 
             // Explicitly wait for an expected element on the comments page
-            await page.waitForSelector(".a-section.review", { timeout: 5000 });
+            await page.waitForSelector(".a-section.review", { timeout: 50000 });
 
             success = true; // If navigation and element detection succeed, break out of the loop
             console.log(colors.green("Success retry"));
@@ -671,10 +671,10 @@ async function scrapeCommentsRecursively(
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
 
-    const filtratedDescription = filterNewlineSeparatedText(
+    let processedDescription = filterNewlineSeparatedText(
       description as string,
     );
-
+    const filtratedDescription = await translateText(processedDescription)
     let isVerifiedPurchase: boolean = false;
 
     try {
@@ -718,11 +718,11 @@ async function scrapeCommentsRecursively(
 
     if (filtratedTitleAndRatingAsList.length > 1) {
       filtratedRating = filtratedTitleAndRatingAsList[0].trim();
-      filtratedTitle = filtratedTitleAndRatingAsList[1].trim();
+      filtratedTitle = await translateText(filtratedTitleAndRatingAsList[1].trim());
     }
 
     if (filtratedTitleAndRatingAsList.length > 0 && commentRating) {
-      filtratedTitle = filtratedTitleAndRatingAsList[0].trim();
+      filtratedTitle = await translateText(filtratedTitleAndRatingAsList[0].trim());
       filtratedRating = commentRating.trim();
     }
 
@@ -755,6 +755,7 @@ async function scrapeCommentsRecursively(
     }
 
 
+    console.log(`The filtrated description after translated ${filtratedDescription}`)
     commentItem = {
       rating: filtratedRating,
       title: filtratedTitle,
@@ -769,13 +770,6 @@ async function scrapeCommentsRecursively(
         emotion: averageSentimentEmotion,
       },
     };
-
-    // console.log({
-    //   title: filtratedTitle,
-    //   url: commentItem.url
-    // })
-
-    // console.log(commentItem);
     collectedComments.push(commentItem);
   }
 
@@ -792,13 +786,6 @@ async function scrapeCommentsRecursively(
   // Extract the previous page configurations
   try {
     prevButtonSelector = await page.$(".a-pagination li:nth-child(1)");
-
-    if (prevButtonSelector !== null) {
-      console.log(colors.yellow("prevButtonSelector ko null"));
-    } else {
-      console.log(colors.red("prevButtonSelector bi null ah"));
-    }
-
     let prevPageUrl = await prevButtonSelector.$eval("a", (el) =>
       el.getAttribute("href"),
     );
@@ -857,7 +844,7 @@ async function scrapeCommentsRecursively(
         },
       }));
 
-      console.log(colors.magenta(`Next page: ${nextPage.metric}`));
+      // console.log(colors.magenta(`Next page: ${nextPage.metric}`));
 
       if (nextPage.url) {
         await page.goto(nextPage.url);
@@ -870,7 +857,7 @@ async function scrapeCommentsRecursively(
       }
     }
   } catch (error) {
-    console.log(colors.rainbow("Next page button not found"));
+    // console.log(colors.rainbow("Next page button not found"));
     collectedComments = collectedComments.map((comment: CommentItem) => ({
       ...comment,
       pagination: {
@@ -887,7 +874,7 @@ async function scrapeCommentsRecursively(
 
 /**
  * TODO: ============================================================= [AUTHENTICATION] - check Captcha Audio verification if it requires ============================================================= */
-async function checkAndSolveNormalCaptcha(page: Page) {
+async function checkAndSolveNormalCaptcha(page: Page): Promise<void> {
   try {
     const captchaPhotoSelector = "div.a-row.a-text-center > img";
     const captchaPhotoRemoteUrl = await page.evaluate((selector) => {
@@ -899,9 +886,10 @@ async function checkAndSolveNormalCaptcha(page: Page) {
       console.log(colors.yellow("Captcha detected, solving..."));
       const executablePath = path.join(
         __dirname,
-        "../../scripts/normal+captcha.py",
+        "../../../src/scripts/normal+captcha.py",
       );
       const command = `python ${executablePath} ${captchaPhotoRemoteUrl}`;
+      console.log(command)
 
       exec(command, async (error, stdout, stderr) => {
         const captureValue = stdout.trim();
@@ -912,7 +900,8 @@ async function checkAndSolveNormalCaptcha(page: Page) {
 
         const button = await page.$(".a-button-text");
         await button.click();
-        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+
+        // await page.waitForNavigation({ waitUntil: "load" });
 
         console.log(colors.green("Normal captcha solved and form submitted."));
       });
@@ -932,7 +921,7 @@ async function checkAndSolveNormalCaptcha(page: Page) {
 async function attemptSignIn(page: Page) {
   try {
     await page.waitForSelector("a[data-nav-ref='nav_ya_signin']", {
-      timeout: 10000, // wait up to 10 seconds
+      timeout: 50000, // wait up to 10 seconds
     });
     const signInButton = await page.$("a[data-nav-ref='nav_ya_signin']");
 
@@ -949,10 +938,7 @@ async function attemptSignIn(page: Page) {
       } else {
         console.error("Continue button not found");
       }
-
       await page.waitForSelector("#ap_password").catch(console.error);
-
-      console.log(`Password is ${String(process.env.AMAZON_ACCOUNT_PW)}`);
       await page.type("#ap_password", String(process.env.AMAZON_ACCOUNT_PW));
 
       const signInSubmitButton = await page.$("#signInSubmit");
@@ -1037,5 +1023,36 @@ async function checkAndHandleCaptchaAudio(page: Page) {
       // Handle other errors as needed, possibly retry or log them
       console.log(colors.red("Error handling audio captcha:"));
     }
+  }
+}
+
+
+const translateText = async(text: string) => {
+  const executablePath = path.join(
+    __dirname,
+    "../../../src/scripts/translator.py"
+  );
+
+  const command = `python ${executablePath} "${text}"`;
+  console.log(command);
+
+  try {
+    // Wait for the exec result
+    const { stdout, stderr } = await execPromise(command);
+
+    if (stderr) {
+      console.error("Error in exec: ", stderr);
+    }
+
+    // Capture the output and trim the result
+    const captureValue = stdout.trim();
+    console.log("Capture value: ", captureValue);
+
+    // Update the description after the exec finishes
+    text = captureValue;
+    return text; // Return the updated description if needed
+  } catch (error) {
+    console.error("Error executing command: ", error);
+    throw error; // Optionally throw the error for handling later
   }
 }
