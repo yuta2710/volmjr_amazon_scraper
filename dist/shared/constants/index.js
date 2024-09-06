@@ -1,0 +1,82 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.RESET = exports.GREEN = exports.RED = exports.WORD_DICT = void 0;
+exports.readStopwordsFile = readStopwordsFile;
+exports.WORD_DICT = {
+    "aren't": "are not",
+    "can't": "cannot",
+    "couldn't": "could not",
+    "doesn't": "does not",
+    "don't": "do not",
+    "hadn't": "had not",
+    "hasn't": "has not",
+    "haven't": "have not",
+    "he'd": "he would",
+    "he'll": "he will",
+    "he's": "he is",
+    // "i'd": "I would", 
+    "i'd": "I had",
+    "i'll": "I will",
+    "i'm": "I am",
+    "isn't": "is not",
+    "it's": "it is",
+    "it'll": "it will",
+    "i've": "I have",
+    "let's": "let us",
+    "mightn't": "might not",
+    "mustn't": "must not",
+    "shan't": "shall not",
+    "she'd": "she would",
+    "she'll": "she will",
+    "she's": "she is",
+    "shouldn't": "should not",
+    "that's": "that is",
+    "there's": "there is",
+    "they'd": "they would",
+    "they'll": "they will",
+    "they're": "they are",
+    "they've": "they have",
+    "we'd": "we would",
+    "we're": "we are",
+    "weren't": "were not",
+    "we've": "we have",
+    "what'll": "what will",
+    "what're": "what are",
+    "what's": "what is",
+    "what've": "what have",
+    "where's": "where is",
+    "who'd": "who would",
+    "who'll": "who will",
+    "who're": "who are",
+    "who's": "who is",
+    "who've": "who have",
+    "won't": "will not",
+    "wouldn't": "would not",
+    "you'd": "you would",
+    "you'll": "you will",
+    "you're": "you are",
+    "you've": "you have",
+    "'re": " are",
+    "wasn't": "was not",
+    "we'll": " will",
+    "didn't": "did not"
+};
+exports.RED = '\\x1b[31m';
+exports.GREEN = '\\x1b[32m';
+exports.RESET = '\\x1b[0m';
+async function readStopwordsFile(callback) {
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", "https://gist.githubusercontent.com/rg089/35e00abf8941d72d419224cfd5b5925d/raw/12d899b70156fd0041fa9778d657330b024b959c/stopwords.txt", true);
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            const text = xhr.responseText;
+            const stopwords = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+            callback(stopwords);
+        }
+        else {
+            console.log("Deo co cc gi");
+        }
+    };
+    xhr.send();
+}
+//# sourceMappingURL=index.js.map

@@ -7,6 +7,24 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- SQL function to recursively fetch categories
+CREATE OR REPLACE FUNCTION get_recursive_categories(category_id INT)
+RETURNS TABLE(id INT, name TEXT, parent_id INT, lft INT, rgt INT) AS $$
+WITH RECURSIVE category_tree AS (
+    SELECT id, name, parent_id, lft, rgt
+    FROM category
+    WHERE parent_id = $1  -- Starting point (the parent category)
+
+    UNION ALL
+
+    SELECT c.id, c.name, c.parent_id, c.lft, c.rgt
+    FROM category c
+    INNER JOIN category_tree ct ON c.parent_id = ct.id
+)
+
+SELECT * FROM category_tree;
+$$ LANGUAGE sql;
+
 -- Create the category table 
 CREATE TABLE category (
   id SERIAL PRIMARY KEY,
@@ -35,6 +53,7 @@ CREATE TABLE base_products (
       (price ? 'originalPrice' IS FALSE OR jsonb_typeof(price->'originalPrice') = 'number') AND
       (price ? 'highestPrice' IS FALSE OR jsonb_typeof(price->'highestPrice') = 'number') AND
       (price ? 'lowestPrice' IS FALSE OR jsonb_typeof(price->'lowestPrice') = 'number') AND
+      (price ? 'averagePrice' IS FALSE OR jsonb_typeof(price->'averagePrice') = 'number') AND
       (price ? 'savings' IS FALSE OR (
           jsonb_typeof(price->'savings') = 'object' AND
           (price->'savings' ? 'amount' IS FALSE OR jsonb_typeof(price->'savings'->'amount') = 'number') AND
@@ -67,11 +86,14 @@ CREATE TABLE base_products (
     ),
 
     -- Average Sentiment Analysis JSONB with constraints
-    average_sentiment_analysis JSONB NOT NULL CHECK (
-        average_sentiment_analysis ? 'score' AND
-        average_sentiment_analysis ? 'emotion' AND
-        jsonb_typeof(average_sentiment_analysis->'score') = 'number' AND
-        jsonb_typeof(average_sentiment_analysis->'emotion') = 'string'
+    average_sentiment_analysis JSONB CHECK (
+        average_sentiment_analysis IS NULL OR 
+        (
+          average_sentiment_analysis ? 'score' AND
+          average_sentiment_analysis ? 'emotion' AND
+          jsonb_typeof(average_sentiment_analysis->'score') = 'number' AND
+          jsonb_typeof(average_sentiment_analysis->'emotion') = 'string'
+        )
     ),
     category INTEGER REFERENCES category(id) ON DELETE CASCADE,
     number_of_comments INTEGER,
@@ -94,8 +116,23 @@ CREATE TABLE base_products (
     is_best_seller BOOLEAN,
     delivery_location TEXT,
     sales_volume_last_month TEXT DEFAULT 'Not Show',
-    business_target_for_collecting TEXT
+    business_target_for_collecting TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()  
 );
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_base_products_updated_at
+BEFORE UPDATE ON base_products
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
 
 
 -- Create the comment_item table

@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "../../shared/types/database.types";
 import { BaseProductInsert } from "../../shared/types";
-import { BaseProduct } from "./product.types";
+import { BaseProduct } from "../../shared/types";
 
 export default class AmazonBaseProductRepository {
   private supabase: SupabaseClient<Database>;

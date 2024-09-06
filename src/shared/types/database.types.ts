@@ -13,11 +13,12 @@ export type Database = {
         Row: {
           asin: string
           average_rating: number | null
-          average_sentiment_analysis: Json
+          average_sentiment_analysis: Json | null
           best_seller_ranks: Json
           brand: string | null
           business_target_for_collecting: string | null
           category: number | null
+          created_at: string
           delivery_location: string | null
           histogram: Json
           id: number
@@ -30,16 +31,18 @@ export type Database = {
           retailer: string | null
           sales_volume_last_month: string | null
           title: string
+          updated_at: string
           url: string
         }
         Insert: {
           asin: string
           average_rating?: number | null
-          average_sentiment_analysis: Json
+          average_sentiment_analysis?: Json | null
           best_seller_ranks?: Json
           brand?: string | null
           business_target_for_collecting?: string | null
           category?: number | null
+          created_at?: string
           delivery_location?: string | null
           histogram: Json
           id?: number
@@ -52,16 +55,18 @@ export type Database = {
           retailer?: string | null
           sales_volume_last_month?: string | null
           title: string
+          updated_at?: string
           url: string
         }
         Update: {
           asin?: string
           average_rating?: number | null
-          average_sentiment_analysis?: Json
+          average_sentiment_analysis?: Json | null
           best_seller_ranks?: Json
           brand?: string | null
           business_target_for_collecting?: string | null
           category?: number | null
+          created_at?: string
           delivery_location?: string | null
           histogram?: Json
           id?: number
@@ -74,6 +79,7 @@ export type Database = {
           retailer?: string | null
           sales_volume_last_month?: string | null
           title?: string
+          updated_at?: string
           url?: string
         }
         Relationships: [
@@ -176,6 +182,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_recursive_categories: {
+        Args: {
+          category_id: number
+        }
+        Returns: {
+          id: number
+          name: string
+          parent_id: number
+          lft: number
+          rgt: number
+        }[]
+      }
       validate_percentage: {
         Args: {
           percentage: string

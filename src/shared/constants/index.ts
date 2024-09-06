@@ -61,3 +61,21 @@ export const WORD_DICT: any = {
 export const RED = '\\x1b[31m';
 export const GREEN = '\\x1b[32m';
 export const RESET = '\\x1b[0m';
+
+export async function readStopwordsFile(callback: any){
+  const xhr = new XMLHttpRequest();
+  xhr.open("GET", "https://gist.githubusercontent.com/rg089/35e00abf8941d72d419224cfd5b5925d/raw/12d899b70156fd0041fa9778d657330b024b959c/stopwords.txt", true);
+  
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState === 4 && xhr.status === 200) {
+      const text = xhr.responseText;
+      const stopwords = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      callback(stopwords);
+    }else{
+      console.log("Deo co cc gi")
+    }
+  };
+
+  xhr.send();
+}
+

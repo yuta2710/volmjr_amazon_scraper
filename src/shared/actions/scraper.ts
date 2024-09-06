@@ -1,3 +1,5 @@
+"use server";
+
 import puppeteer, { ElementHandle, Page } from "puppeteer";
 import { exec } from "child_process";
 import path from "path";
@@ -12,6 +14,7 @@ import {
   filterCategoryAsListByHtml,
   filterQueryType,
   filterBestSellerRanks,
+  isValidPriceFormat,
 } from "./filter";
 import { analyzeSentiment, analyzeEmotionByScore } from "./analyze";
 import {
@@ -19,12 +22,11 @@ import {
   CommentItem,
   AmazonScrapedResponse,
   BestSellerRank,
-} from "@/modules/products/product.types";
-import {
-  CategoryNode,
-} from "../../modules/category/category.model";
-import colors from "colors"
-
+  CamelPriceComparison,
+} from "../types";
+import { CategoryNode } from "../../modules/category/category.model";
+import colors from "colors";
+import { retrieveProductPriceHistoryGroup } from "./camel+browser";
 /**
  * Scrapes product information and reviews from an Amazon product page.
  *
@@ -37,11 +39,11 @@ export async function scrapeAmazonProduct(
 
   // const browser = await puppeteer.launch({ headless: true });
   const browser = await puppeteer.launch({
-    headless: Boolean(process.env.HEADLESS_MODE),
-    // headless: false,
+    // headless: Boolean(process.env.HEADLESS_MODE),
+    headless: true,
   });
   const page = await browser.newPage();
-  await page.goto(url).catch(console.error);
+  await page.goto(url);
 
   await checkAndSolveNormalCaptcha(page);
 
@@ -55,7 +57,9 @@ export async function scrapeAmazonProduct(
       signedIn = true;
     } catch (error) {
       console.error(
-        `Sign-in attempt failed: ${error.message}. Retries left: ${signInAttempts - 1}`,
+        `Sign-in attempt failed: ${error.message}. Retries left: ${
+          signInAttempts - 1
+        }`,
       );
       signInAttempts--;
       if (signInAttempts === 0) {
@@ -67,134 +71,185 @@ export async function scrapeAmazonProduct(
   /**
    * TODO: ============================================================= Process/Build the category hirarchy =============================================================
    */
-  let categoryContainerSelectorList = await page.$$(
-    "#wayfinding-breadcrumbs_feature_div ul > li",
-  );
-  // Build the tree of category
-  let categoryHierarchy: CategoryNode = await filterCategoryAsListByHtml(
-    categoryContainerSelectorList as ElementHandle<HTMLLIElement>[],
-  );
-  categoryHierarchy.displayHierarchyAsJSON();
+  let categoryContainerSelectorList: ElementHandle<HTMLLIElement>[] = null;
+  let categoryHierarchy: CategoryNode = null;
+  let flattenedCategoryHierarchy = null;
 
+  try {
+    categoryContainerSelectorList = await page.$$(
+      "#wayfinding-breadcrumbs_feature_div ul > li",
+    );
+    // Ensure we have elements in the list
+    if (
+      categoryContainerSelectorList &&
+      categoryContainerSelectorList.length > 0
+    ) {
+      categoryHierarchy = await filterCategoryAsListByHtml(
+        categoryContainerSelectorList as ElementHandle<HTMLLIElement>[],
+      );
+      flattenedCategoryHierarchy = JSON.parse(
+        JSON.stringify(categoryHierarchy),
+      );
+    } else {
+      console.warn("No categories found in the selector list.");
+    }
+  } catch (error) {
+    console.error("Category not found on browser:", error);
+  }
+
+  // categoryHierarchy.displayHierarchyAsJSON();
   const scrapedProduct: BaseProduct =
     await collectProductDataExceptForeignField(page);
 
+  const priceHistoryGroup: CamelPriceComparison =
+    await retrieveProductPriceHistoryGroup(scrapedProduct.asin);
+
+  console.log("Fucking bitch group");
+  console.log(priceHistoryGroup);
+
+  if (priceHistoryGroup) {
+    scrapedProduct.price.lowestPrice = priceHistoryGroup?.lowestPrice;
+    scrapedProduct.price.highestPrice = priceHistoryGroup?.highestPrice;
+    scrapedProduct.price.currentPrice = priceHistoryGroup?.currentPrice;
+    scrapedProduct.price.averagePrice = priceHistoryGroup?.averagePrice;
+  }
+
+  console.log("Oh shiet processed price");
+  console.log(scrapedProduct.price);
+
   // After format asin, title, price...., navigate to comment page
   // Wait for the review button to appear and be clickable
-  const reviewButton = await page.waitForSelector(
-    ".a-link-emphasis.a-text-bold",
-    { timeout: 5000 },
-  );
+  let reviewButton = null;
 
-  if (reviewButton) {
-    try {
-      await reviewButton.click();
-      await page.waitForNavigation({
-        waitUntil: "domcontentloaded",
-        timeout: 10000,
-      }); // Timeout after 10 seconds
+  try {
+    reviewButton = await page.waitForSelector(".a-link-emphasis.a-text-bold", {
+      timeout: 5000,
+    });
 
-      const comment_url = `${page.url()}&sortBy=recent&pageNumber=1`;
-      console.log(colors.cyan("After navigate = "), comment_url);
+    if (reviewButton) {
+      try {
+        await reviewButton.click();
+        await page.waitForNavigation({
+          waitUntil: "domcontentloaded",
+          timeout: 10000,
+        });
 
-      // Implement retry mechanism for page navigation
-      let retries = 3;
-      let success = false;
+        const comment_url = `${page.url()}&sortBy=recent&pageNumber=1`;
+        console.log(colors.cyan("After navigate = "), comment_url);
+        // Implement retry mechanism for page navigation
+        let retries = 10;
+        let success = false;
 
-      while (retries > 0 && !success) {
-        try {
-          await page.goto(comment_url, {
-            waitUntil: "domcontentloaded",
-            timeout: 10000,
-          }); // Timeout after 10 seconds
+        while (retries > 0 && !success) {
+          try {
+            await page.goto(comment_url, {
+              waitUntil: "domcontentloaded",
+              timeout: 10000,
+            }); // Timeout after 10 seconds
 
-          // Explicitly wait for an expected element on the comments page
-          await page.waitForSelector(".a-section.review", { timeout: 5000 });
+            // Explicitly wait for an expected element on the comments page
+            await page.waitForSelector(".a-section.review", { timeout: 5000 });
 
-          success = true; // If navigation and element detection succeed, break out of the loop
-          console.log(colors.green("Success retry"));
-        } catch (error) {
-          console.error(
-            `Navigation to ${comment_url} failed: ${error.message}. Retries left: ${retries - 1}`,
-          );
-          retries--;
-          if (retries === 0) {
-            throw new Error(
-              "Failed to navigate to comments after multiple attempts.",
+            success = true; // If navigation and element detection succeed, break out of the loop
+            console.log(colors.green("Success retry"));
+          } catch (error) {
+            console.error(
+              `Navigation to ${comment_url} failed: ${
+                error.message
+              }. Retries left: ${retries - 1}`,
             );
+            retries--;
+            if (retries === 0) {
+              throw new Error(
+                "Failed to navigate to comments after multiple attempts.",
+              );
+            }
+            await new Promise((resolve) => setTimeout(resolve, 2000)); // Add a small delay between retries
           }
-          await new Promise((resolve) => setTimeout(resolve, 2000)); // Add a small delay between retries
+        }
+
+        /**
+         * TODO: ============================================================= Steps to scrape the comments ============================================================= */
+        const collectedComments: CommentItem[] =
+          await scrapeCommentsRecursively(page);
+        console.log(
+          colors.green(
+            `Number of the collected comments: ${collectedComments.length}`,
+          ),
+        );
+
+        // Update the amount of comments
+        scrapedProduct.numberOfComments = collectedComments.length;
+
+        // Calculate the average of sentiment comment
+        if (collectedComments.length > 0) {
+          const totalScore = collectedComments.reduce(
+            (sum, data: CommentItem) => {
+              const score = data.sentiment.score;
+              return (
+                sum + (typeof score === "number" && !isNaN(score) ? score : 0)
+              );
+            },
+            0,
+          );
+
+          // Calculate the average sentiment score
+          const averageSentimentScoreOfScrapedProduct: number = Number(
+            (totalScore / collectedComments.length).toFixed(1),
+          );
+
+          // Analyze the emotion based on the average sentiment score
+          const averageSentimentEmotionOfScrapedProduct: string =
+            analyzeEmotionByScore(averageSentimentScoreOfScrapedProduct);
+
+          // Ensure that scrapedProduct.averageSentimentAnalysis is properly initialized
+          scrapedProduct.averageSentimentAnalysis = {
+            score: averageSentimentScoreOfScrapedProduct,
+            emotion: averageSentimentEmotionOfScrapedProduct,
+          };
+        } else {
+          // Handle the case where there are no comments
+          console.error("No comments found in collectedComments.");
+        }
+
+        /**
+         * * Amazon's scraped data structure is completed
+         */
+        return {
+          product: scrapedProduct,
+          comments: collectedComments,
+          category: flattenedCategoryHierarchy
+            ? flattenedCategoryHierarchy
+            : null,
+        } as AmazonScrapedResponse;
+      } catch (error) {
+        console.error("Error in scrapeAmazonProduct:", error.message);
+      } finally {
+        if (browser) {
+          await browser.close(); // Ensure browser is closed even if an error occurs
         }
       }
-
-      /**
-       * TODO: ============================================================= Steps to scrape the comments ============================================================= */
-      const collectedComments: CommentItem[] =
-        await scrapeCommentsRecursively(page);
-      console.log(colors.green("Total collected comments:"), collectedComments.length);
-
-      // Update the amount of comments
-      scrapedProduct.numberOfComments = collectedComments.length;
-
-      // Calculate the average of sentiment comment
-      if (collectedComments.length > 0) {
-        const totalScore = collectedComments.reduce(
-          (sum, data: CommentItem) => {
-            const score = data.sentiment.score;
-            return (
-              sum + (typeof score === "number" && !isNaN(score) ? score : 0)
-            );
-          },
-          0,
-        );
-
-        const listOfScoreFromComments = collectedComments.map(
-          (comment: CommentItem) => comment.sentiment.score,
-        );
-
-        // Calculate the average sentiment score
-        const averageSentimentScoreOfScrapedProduct: number = Number(
-          (totalScore / collectedComments.length).toFixed(1),
-        );
-
-        // Analyze the emotion based on the average sentiment score
-        const averageSentimentEmotionOfScrapedProduct: string =
-          analyzeEmotionByScore(averageSentimentScoreOfScrapedProduct);
-
-        // Ensure that scrapedProduct.averageSentimentAnalysis is properly initialized
-        scrapedProduct.averageSentimentAnalysis = {
-          score: averageSentimentScoreOfScrapedProduct,
-          emotion: averageSentimentEmotionOfScrapedProduct,
-        };
-      } else {
-        // Handle the case where there are no comments
-        console.error("No comments found in collectedComments.");
-      }
-
-      /**
-       * * Amazon's scraped data structure is completed
-       */
+    } else {
+      console.error(
+        "Review button not found, cannot proceed with comment scraping.",
+      );
       return {
         product: scrapedProduct,
-        comments: collectedComments,
-        category: categoryHierarchy,
+        comments: [],
+        category: flattenedCategoryHierarchy
+          ? flattenedCategoryHierarchy
+          : null,
       } as AmazonScrapedResponse;
-    } catch (error) {
-      console.error("Error in scrapeAmazonProduct:", error.message);
-      return null; // Return null or handle the error appropriately
-    } finally {
-      if (browser) {
-        await browser.close(); // Ensure browser is closed even if an error occurs
-      }
     }
-  } else {
-    console.error(
-      "Review button not found, cannot proceed with comment scraping.",
-    );
+  } catch (error) {
+    console.error("Fuck that shit");
+    return {
+      product: scrapedProduct,
+      comments: [],
+      category: flattenedCategoryHierarchy ? flattenedCategoryHierarchy : null,
+    } as AmazonScrapedResponse;
   }
-  // https://www.amazon.com/Tanisa-Organic-Spring-Paper-Wrapper/product-reviews/B07KXPKRNK/ref=cm_cr_arp_d_viewpnt_lft?ie=UTF8&reviewerType=all_reviews&filterByStar=all_stars&pageNumber=1
 }
-
 
 async function collectProductDataExceptForeignField(
   page: Page,
@@ -224,28 +279,57 @@ async function collectProductDataExceptForeignField(
     console.error("Unable to select Amazon Choice selector");
   }
 
-  console.error(`Is Amazon Choice: ${isAmazonChoice}`);
-
   // Current price text
-  let currentPrice: string;
-  let currency: string;
+  let currentPrice: string = "Not show";
+  let currency: string = "";
+  let currentPriceText: string = "";
 
   try {
-    const priceText = (
+    currentPriceText = await page.$eval(
+      ".a-price.a-text-price.a-size-medium.apexPriceToPay span:nth-child(1)",
+      (el) => el.textContent.trim(),
+    );
+  } catch (error) {
+    console.error("Price text in apexPriceToPay not found");
+  }
+  try {
+    currentPriceText = (
+      await page.$eval(
+        ".a-price.aok-align-center.reinventPricePriceToPayMargin.priceToPay span",
+        (el) => el.textContent,
+      )
+    ).trim();
+  } catch (error) {
+    console.error(
+      "Price element not found or unable to extract reinventPricePriceToPayMargin:",
+    );
+  }
+
+  try {
+    currentPriceText = (
       await page.$eval(
         ".a-price.aok-align-center.reinventPricePriceToPayMargin.priceToPay",
         (el) => el.textContent,
       )
     ).trim();
+    console.log(`Extractor = ${currentPriceText}`);
 
-    if (priceText) {
-      currentPrice = priceText;
-      currency = filterComponentsOfPrice(currentPrice)[0] as string;
-    }
+    console.log(
+      `Is valid price format: ${isValidPriceFormat(currentPriceText)}`,
+    );
+    const isDuplicatedPriceTextValue =
+      currentPriceText.match(/\$\d+(\.\d{2})?/);
+
+    currentPriceText = isDuplicatedPriceTextValue["input"];
   } catch (error) {
-    console.error("Price element not found or unable to extract price:");
-    currentPrice = ""; // or set to null or some default value
-    currency = ""; // or set to a default value if needed
+    console.error(
+      "Price element of aok-offscreen not found or unable to extract SPAN reinventPricePriceToPayMargin:",
+    );
+  }
+
+  if (currentPriceText) {
+    currentPrice = currentPriceText;
+    currency = filterComponentsOfPrice(currentPrice)[0] as string;
   }
 
   // Original price
@@ -263,7 +347,7 @@ async function collectProductDataExceptForeignField(
       originalPriceMetric = Number(originalPrice.replace("$", ""));
     }
   } catch (error) {
-    console.error("\nPrice element not found or unable to extract price:");
+    console.error("Price element not found or unable to extract price:");
     originalPrice = "";
     originalPriceMetric = 0;
   }
@@ -284,13 +368,31 @@ async function collectProductDataExceptForeignField(
     )
   ).trim();
 
-  if(deliveryLocation === "United States Min...") {
+  if (deliveryLocation === "United States Min...") {
     deliveryLocation = "United States Minor Outlying Islands";
   }
 
-  const retailerElement = await page.$(
-    "#sellerProfileTriggerId",
-  );
+  let retailerElement = null;
+
+  try {
+    retailerElement = await page.$("#sellerProfileTriggerId");
+  } catch (error) {
+    console.error(
+      "Unable to retailer name by ID = " +
+        colors.cyan("sellerProfileTriggerId"),
+    );
+  }
+
+  try {
+    retailerElement = await page.$(
+      "#merchantInfoFeature_feature_div div[offer-display-feature-name='desktop-merchant-info'] span.a-size-small.offer-display-feature-text-message",
+    );
+  } catch (error) {
+    console.error(
+      "Unable to retailer name by ID = " +
+        colors.cyan("merchantInfoFeature_feature_div"),
+    );
+  }
 
   let retailerName: string | null = null;
 
@@ -321,7 +423,6 @@ async function collectProductDataExceptForeignField(
     filtratedSalesVolumeLastMonth = "Not show";
   }
   const histogramTable = await page.$$("#histogramTable > li");
-  // console.log("Length of histogram table = ", histogramTable.length);
   let historamItemMapper = [];
 
   for (let i = 0; i < histogramTable.length; i++) {
@@ -350,12 +451,6 @@ async function collectProductDataExceptForeignField(
     );
     isOutOfStock = false;
   }
-
-  // console.log(colors.green("Is Out of Stock:"), isOutOfStock);
-  // console.log(`\nHistogram Mapper have ${historamItemMapper.length} result`)
-  // console.log(colors.green(`Metric of average rating = ${filtratedAverageRatingMetric}`));
-  // console.log(colors.green("Original price = "), originalPrice);
-
   // Percentage selling
   let percentage: string | null;
 
@@ -369,43 +464,55 @@ async function collectProductDataExceptForeignField(
         (el) => el.textContent.trim().toLowerCase(),
       );
       percentage = percentageText;
+
+      console.log("Percentage text: ", percentage);
     }
   } catch (error) {
-    console.log(colors.red("\nPercentage currently not available to display"));
+    console.log(colors.red("Percentage currently not available to display"));
   }
 
+  // const dateFirstAvailable = await page.$eval(".a-color-secondary.a-size-base.prodDetSectionEntry", el => el.textContent.trim());
+  // console.log(`Date First Available: ${dateFirstAvailable}`)
+
   const bestSellerRankJson = await getBestSellerRankByHtmlElement(page);
-  console.log(colors.cyan("\n\nBest seller ranks in json format = "), bestSellerRankJson);
 
   const bestSellerRankArr: string[] =
     bestSellerRankJson["attributeVal"].split("   ");
 
-  console.log("\nBest Seller Rank Array Attribute Values");
-  console.log(bestSellerRankArr);
+  const filteredBestSellerRank: BestSellerRank[] = filterBestSellerRanks(
+    bestSellerRankArr as string[],
+  );
 
-  const filteredBestSellerRank: BestSellerRank[] = filterBestSellerRanks(bestSellerRankArr as string[]);
-  const isBestSeller: boolean = filteredBestSellerRank.some(ranking => ranking.rank === "#1")
+  const isBestSeller: boolean = filteredBestSellerRank.some(
+    (ranking) => ranking.rank === "#1",
+  );
 
   const image = (await page.$eval("img#landingImage", (el) =>
     el.getAttribute("src"),
   )) as string;
 
+  let filteredPriceAsNumeric: number;
+
+  if (currentPriceText) {
+    filteredPriceAsNumeric = filterComponentsOfPrice(currentPrice)[1] as number;
+  }
+
   collectedProduct = {
     asin,
     title,
     price: {
-      amount: filterComponentsOfPrice(currentPrice)[1] as number,
+      amount: filteredPriceAsNumeric,
       currency,
       displayAmount: String(currentPrice),
-      currentPrice: filterComponentsOfPrice(currentPrice)[1] as number,
-      originalPrice: originalPriceMetric,
+      currentPrice: filteredPriceAsNumeric,
+      originalPrice: originalPriceMetric || filteredPriceAsNumeric,
       highestPrice: originalPriceMetric,
-      lowestPrice: filterComponentsOfPrice(currentPrice)[1] as number,
+      lowestPrice: filteredPriceAsNumeric,
       savings: {
         percentage: percentage !== undefined ? percentage : "",
         currency,
         displayAmount: String(currentPrice),
-        amount: filterComponentsOfPrice(currentPrice)[1] as number,
+        amount: filteredPriceAsNumeric,
       },
     },
     histogram: filtratedHistogramItems,
@@ -417,12 +524,13 @@ async function collectProductDataExceptForeignField(
     url: String(page.url()),
     bestSellerRanks: filteredBestSellerRank,
     isBestSeller,
-    isAmazonChoice: isAmazonChoice,
+    isAmazonChoice,
     isOutOfStock,
     brand: "Amazon",
     image,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
-
   return collectedProduct;
 }
 
@@ -460,7 +568,9 @@ async function getBestSellerRankByHtmlElement(page: Page): Promise<{
       return bestSellerRankJson;
     }
   } catch (error) {
-    console.error("Error processing <ul> tag for Best Seller Ranks. Continuing to check table...");
+    console.error(
+      "Error processing <ul> tag for Best Seller Ranks. Continuing to check table...",
+    );
   }
 
   // If the <ul> tag doesn't contain the Best Sellers Rank, check the <table> tag
@@ -470,9 +580,11 @@ async function getBestSellerRankByHtmlElement(page: Page): Promise<{
       (el) => el.textContent.trim(),
     );
 
-    const bestSellerRankMatch = queryProductDetailsContainerRawText.match(
-      /Best Sellers Rank\s+(#\d+[\s\S]+?)(?=\s+Date First Available)/,
-    );
+    bestSellerRankRegex =
+      /Best Sellers Rank\s+(#\d+[\s\S]+?)(?=\s+Date First Available)/;
+
+    const bestSellerRankMatch =
+      queryProductDetailsContainerRawText.match(bestSellerRankRegex);
 
     if (bestSellerRankMatch) {
       bestSellerRankJson = {
@@ -482,7 +594,9 @@ async function getBestSellerRankByHtmlElement(page: Page): Promise<{
       return bestSellerRankJson;
     }
   } catch (error) {
-    console.error("Error processing <table> tag for Best Seller Ranks. Continuing to check div...");
+    console.error(
+      "Error processing <table> tag for Best Seller Ranks. Continuing to check div...",
+    );
   }
 
   // If neither the <ul> nor <table> tags contain the Best Sellers Rank, check the <div> tag
@@ -492,9 +606,10 @@ async function getBestSellerRankByHtmlElement(page: Page): Promise<{
       (el) => el.textContent.trim(),
     );
 
-    const bestSellerRankMatch = queryProductDetailsContainerRawText.match(
-      /Best Sellers Rank\s+(#\d+[\s\S]+?)(?=\s+Date First Available)/,
-    );
+    bestSellerRankRegex =
+      /Best Sellers Rank\s+(#\d+[\s\S]+?)(?=\s+Date First Available)/;
+    const bestSellerRankMatch =
+      queryProductDetailsContainerRawText.match(bestSellerRankRegex);
 
     if (bestSellerRankMatch) {
       bestSellerRankJson = {
@@ -502,7 +617,7 @@ async function getBestSellerRankByHtmlElement(page: Page): Promise<{
         attributeVal: bestSellerRankMatch[1].trim(),
       };
       return bestSellerRankJson;
-    } 
+    }
   } catch (error) {
     console.error("Error processing <div> tag for Best Seller Ranks.");
   }
@@ -522,7 +637,7 @@ async function scrapeCommentsRecursively(
   page: Page,
   collectedComments: CommentItem[] = [],
 ) {
-  // await delayPage(2000);
+  // await page.reload();
   const queryCommentPrimaryContainer = await page.$(
     ".a-section.a-spacing-none.reviews-content.a-size-base",
   );
@@ -532,25 +647,32 @@ async function scrapeCommentsRecursively(
   );
 
   console.log(
-    colors.cyan("\nLength of this list of comments = "),
+    colors.cyan("\nSize of current list of comments = "),
     queryListOfComments.length,
   );
-  console.log(colors.magenta("Comment URL of the page "), page.url());
 
   for (let i = 0; i < queryListOfComments.length; i++) {
     let commentItem: CommentItem;
-    const titleAndRatingRawText = await queryListOfComments[i].$eval(
-      ".a-size-base.a-link-normal.review-title.a-color-base.review-title-content.a-text-bold",
+    let titleAndRatingRawText = await queryListOfComments[i].$eval(
+      ".a-size-base.review-title.a-color-base.review-title-content.a-text-bold",
       (el) => el.textContent,
     );
-    const currentUrlOfComment = await queryListOfComments[i].$eval(
-      ".a-size-base.a-link-normal.review-title.a-color-base.review-title-content.a-text-bold",
-      (el) => el.getAttribute("href"),
-    );
+    let commentRating = "";
+
+    try {
+      commentRating = await queryListOfComments[i].$eval(
+        "i[data-hook='cmps-review-star-rating']",
+        (el) => el.textContent.trim(),
+      );
+    } catch (error) {
+      console.error("Not found i rating in comment title as SPAN tag");
+    }
+
     const description = await queryListOfComments[i].$eval(
       ".a-size-base.review-text.review-text-content",
       (el) => el.textContent,
     );
+
     const filtratedTitleAndRatingAsList = (titleAndRatingRawText as string)
       .split("\n")
       .map((line) => line.trim())
@@ -560,12 +682,16 @@ async function scrapeCommentsRecursively(
       description as string,
     );
 
-    const isVerifiedPurchase = await queryListOfComments[i].evaluate(() => {
-      const el = document.querySelector(
-        ".a-size-mini.a-color-state.a-text-bold",
-      );
-      return el.textContent !== "";
-    });
+    let isVerifiedPurchase: boolean = false;
+
+    try {
+      isVerifiedPurchase =
+        (await queryListOfComments[i].$(
+          ".a-size-mini.a-color-state.a-text-bold",
+        )) !== null;
+    } catch (error) {
+      console.log(colors.cyan("Is verified purchase not found"));
+    }
 
     let helpfulCount = null;
 
@@ -587,10 +713,25 @@ async function scrapeCommentsRecursively(
     const filtratedLocationAndDateAsList = filterLocationAndDateOfCommentItem(
       locationAndDateRawText,
     );
-    const filtratedLocation = filtratedLocationAndDateAsList[0];
+
+    const filtratedLocation = filtratedLocationAndDateAsList[0]
+      .replace(/\bthe\b/gi, "")
+      .trim();
+
     const filtratedDate = filtratedLocationAndDateAsList[1];
-    const filtratedRating = filtratedTitleAndRatingAsList[0].trim();
-    const filtratedTitle = filtratedTitleAndRatingAsList[1].trim();
+
+    let filtratedTitle = "";
+    let filtratedRating = "";
+
+    if (filtratedTitleAndRatingAsList.length > 1) {
+      filtratedRating = filtratedTitleAndRatingAsList[0].trim();
+      filtratedTitle = filtratedTitleAndRatingAsList[1].trim();
+    }
+
+    if (filtratedTitleAndRatingAsList.length > 0 && commentRating) {
+      filtratedTitle = filtratedTitleAndRatingAsList[0].trim();
+      filtratedRating = commentRating.trim();
+    }
 
     const sentimentTitle = analyzeSentiment(filtratedTitle);
     const sentimentDescription = analyzeSentiment(filtratedDescription.trim());
@@ -602,9 +743,12 @@ async function scrapeCommentsRecursively(
         2
       ).toFixed(1),
     );
+
     const averageSentimentEmotion: string = analyzeEmotionByScore(
       averageSentimentScore as number,
     );
+
+    let currentUrlOfComment: string = "";
 
     commentItem = {
       rating: filtratedRating,
@@ -620,17 +764,10 @@ async function scrapeCommentsRecursively(
         emotion: averageSentimentEmotion,
       },
     };
-
     collectedComments.push(commentItem);
   }
 
-  const isNextButtonDisabled = await page.$eval(
-    ".a-pagination li.a-last",
-    (el) => el.classList.contains("a-disabled"),
-  );
-
-  let prevButtonSelector;
-
+  let prevButtonSelector = null;
   let prevPage = {
     url: "" as string,
     metric: 1 as number,
@@ -640,15 +777,22 @@ async function scrapeCommentsRecursively(
     metric: 1 as number,
   };
 
+  // Extract the previous page configurations
   try {
     prevButtonSelector = await page.$(".a-pagination li:nth-child(1)");
+
+    if (prevButtonSelector !== null) {
+      console.log(colors.yellow("prevButtonSelector ko null"));
+    } else {
+      console.log(colors.red("prevButtonSelector bi null ah"));
+    }
+
     let prevPageUrl = await prevButtonSelector.$eval("a", (el) =>
       el.getAttribute("href"),
     );
     prevPageUrl = `https://${String(process.env.AMAZON_DOMAIN)}${prevPageUrl}`;
 
     let prevPageMetric = filterQueryType(prevPageUrl)["pageNumber"] as number;
-
     prevPage = {
       url: prevPageUrl as string,
       metric: prevPageMetric as number,
@@ -658,61 +802,79 @@ async function scrapeCommentsRecursively(
   }
 
   // Need to fix the logic of next button
-  const nextButtonClass = await page.$eval(
-    ".a-pagination li:nth-child(2)",
-    (el) => el.getAttribute("class"),
-  );
+  let nextButtonClass = null;
 
-  // If next button is not disabled
-  // If the next button is not disabled
-  if (!nextButtonClass.includes("a-disabled a-last")) {
-    let nextPageUrl: string = await page.$eval(
-      ".a-pagination li:nth-child(2) a",
-      (el) => el.getAttribute("href"),
+  try {
+    nextButtonClass = await page.$eval(".a-pagination li:nth-child(2)", (el) =>
+      el.getAttribute("class"),
     );
-    nextPageUrl = `https://${String(process.env.AMAZON_DOMAIN)}${nextPageUrl}`;
-    const nextPageMetric = filterQueryType(String(nextPageUrl))[
-      "pageNumber"
-    ] as number;
+    // If next button is not disabled. Extract the next page configurations
+    if (nextButtonClass) {
+      if (!nextButtonClass.includes("a-disabled a-last")) {
+        let nextPageUrl: string = await page.$eval(
+          ".a-pagination li:nth-child(2) a",
+          (el) => el.getAttribute("href"),
+        );
 
-    nextPage = {
-      url: nextPageUrl,
-      metric: nextPageMetric,
-    };
-  }
+        nextPageUrl = `https://${String(
+          process.env.AMAZON_DOMAIN,
+        )}${nextPageUrl}`;
 
-  const currentPage = filterQueryType(String(page.url()))[
-    "pageNumber"
-  ] as number;
+        const nextPageMetric = filterQueryType(String(nextPageUrl))[
+          "pageNumber"
+        ] as number;
 
-  collectedComments = collectedComments.map((comment: CommentItem) => ({
-    ...comment,
-    pagination: {
-      totalRecords: queryListOfComments.length,
-      currentPage,
-      nextPage:
-        nextPage.url && nextPage.metric ? nextPage : { url: "", metric: 1 },
-      prevPage:
-        prevPage.url && prevPage.metric ? prevPage : { url: "", metric: 1 },
-    },
-  }));
+        nextPage = {
+          url: nextPageUrl,
+          metric: nextPageMetric,
+        };
+      }
+      const currentPage = filterQueryType(String(page.url()))[
+        "pageNumber"
+      ] as number;
 
-  console.log(colors.magenta("Next page object"));
-  console.log(nextPage);
+      collectedComments = collectedComments.map((comment: CommentItem) => ({
+        ...comment,
+        pagination: {
+          totalRecords: queryListOfComments.length,
+          currentPage,
+          nextPage:
+            nextPage.url && nextPage.metric ? nextPage : { url: "", metric: 1 },
+          prevPage:
+            prevPage.url && prevPage.metric ? prevPage : { url: "", metric: 1 },
+        },
+      }));
 
-  if (nextPage.url) {
-    await page.goto(nextPage.url);
+      console.log(colors.magenta(`Next page: ${nextPage.metric}`));
 
-    // Recursive call to scrape the next page
-    return scrapeCommentsRecursively(page, collectedComments);
-  } else {
-    // No more pages, return collected comments
+      if (nextPage.url) {
+        await page.goto(nextPage.url);
+
+        // Recursive call to scrape the next page
+        return scrapeCommentsRecursively(page, collectedComments);
+      } else {
+        // No more pages, return collected comments
+        return collectedComments;
+      }
+    }
+  } catch (error) {
+    console.log(colors.rainbow("Next page button not found"));
+    collectedComments = collectedComments.map((comment: CommentItem) => ({
+      ...comment,
+      pagination: {
+        totalRecords: queryListOfComments.length,
+        currentPage: 1,
+        nextPage: { url: "", metric: 1 },
+        prevPage: { url: "", metric: 1 },
+      },
+    }));
+
     return collectedComments;
   }
 }
 
 /**
-   * TODO: ============================================================= [AUTHENTICATION] - check Captcha Audio verification if it requires ============================================================= */
+ * TODO: ============================================================= [AUTHENTICATION] - check Captcha Audio verification if it requires ============================================================= */
 async function checkAndSolveNormalCaptcha(page: Page) {
   try {
     const captchaPhotoSelector = "div.a-row.a-text-center > img";
@@ -723,50 +885,39 @@ async function checkAndSolveNormalCaptcha(page: Page) {
 
     if (captchaPhotoRemoteUrl) {
       console.log(colors.yellow("Captcha detected, solving..."));
-
       const executablePath = path.join(
         __dirname,
-        "../../../src/scripts/normal+captcha.py",
+        "../../scripts/normal+captcha.py",
       );
       const command = `python ${executablePath} ${captchaPhotoRemoteUrl}`;
 
       exec(command, async (error, stdout, stderr) => {
-        if (error) {
-          console.error(`Error: ${error.message}`);
-          return;
-        }
-        if (stderr) {
-          console.error(`stderr: ${stderr}`);
-          return;
-        }
         const captureValue = stdout.trim();
+        console.log("Capture value ", captureValue);
 
-        await page.waitForSelector("#captchacharacters").catch(console.error);
-        await page
-          .type("#captchacharacters", captureValue)
-          .catch(console.error);
+        await page.waitForSelector("#captchacharacters");
+        await page.type("#captchacharacters", captureValue);
 
         const button = await page.$(".a-button-text");
-        await button.click().catch(console.error);
-
-        await page
-          .waitForNavigation({ waitUntil: "domcontentloaded" })
-          .catch(console.error);
+        await button.click();
+        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
 
         console.log(colors.green("Normal captcha solved and form submitted."));
       });
     } else {
-      console.log(colors.yellow("Normal captcha not detected, proceeding to login..."));
+      console.log(
+        colors.yellow("Normal captcha not detected, proceeding to login..."),
+      );
     }
   } catch (err) {
     console.error("Error handling normal captcha:", err.message);
   }
 }
 
- /**
-   * TODO: ============================================================= Attepmt sign in more times =============================================================
-   */
- async function attemptSignIn(page: Page) {
+/**
+ * TODO: ============================================================= Attepmt sign in more times =============================================================
+ */
+async function attemptSignIn(page: Page) {
   try {
     await page.waitForSelector("a[data-nav-ref='nav_ya_signin']", {
       timeout: 10000, // wait up to 10 seconds
@@ -775,14 +926,11 @@ async function checkAndSolveNormalCaptcha(page: Page) {
 
     if (signInButton) {
       await signInButton.click().catch(console.error);
-      await page
-        .waitForNavigation({ waitUntil: "domcontentloaded" })
-        .catch(console.error);
+      await page.waitForNavigation({ waitUntil: "domcontentloaded" });
 
       await page.waitForSelector("#ap_email").catch(console.error);
-      await page
-        .type("#ap_email", String(process.env.AMAZON_ACCOUNT_EMAIL))
-        .catch(console.error);
+      await page.type("#ap_email", String(process.env.AMAZON_ACCOUNT_EMAIL));
+
       const continueButton = await page.$("#continue").catch(console.error);
       if (continueButton) {
         await continueButton.click().catch(console.error);
@@ -791,18 +939,15 @@ async function checkAndSolveNormalCaptcha(page: Page) {
       }
 
       await page.waitForSelector("#ap_password").catch(console.error);
-      await page
-        .type("#ap_password", String(process.env.AMAZON_ACCOUNT_PASSWORD))
-        .catch(console.error);
 
-      const signInSubmitButton = await page
-        .$("#signInSubmit")
-        .catch(console.error);
+      console.log(`Password is ${String(process.env.AMAZON_ACCOUNT_PW)}`);
+      await page.type("#ap_password", String(process.env.AMAZON_ACCOUNT_PW));
+
+      const signInSubmitButton = await page.$("#signInSubmit");
+
       if (signInSubmitButton) {
-        await signInSubmitButton.click().catch(console.error);
-        await page
-          .waitForNavigation({ waitUntil: "domcontentloaded" })
-          .catch(console.error);
+        await signInSubmitButton.click();
+        await page.waitForNavigation({ waitUntil: "domcontentloaded" });
       } else {
         console.error("Sign-in submit button not found");
       }
@@ -838,9 +983,11 @@ async function checkAndHandleCaptchaAudio(page: Page) {
       const client = new AssemblyAI({
         apiKey: String(process.env.ASSEMBLY_AI_API_KEY),
       });
+
       const data = {
         audio_url: audioUrl,
       };
+
       const getTranscript = async () => {
         const transcript = await client.transcripts.transcribe(data);
         return transcript.text;
@@ -851,8 +998,6 @@ async function checkAndHandleCaptchaAudio(page: Page) {
       const processedAudioCaptchaValue = transcriptList[
         transcriptList.length - 1
       ].replace(".", "");
-
-      console.log(colors.green("Processed captcha value = "), processedAudioCaptchaValue);
 
       await page.waitForSelector(
         ".a-input-text.a-span12.cvf-widget-input.cvf-widget-input-code.cvf-widget-input-captcha.fwcim-captcha-guess",
@@ -874,11 +1019,11 @@ async function checkAndHandleCaptchaAudio(page: Page) {
     }
   } catch (err) {
     if (err.name === "TimeoutError") {
-      console.log(colors.green("Captcha Audio not detected, continuing..."));
       // If captcha is not detected, proceed as normal
+      console.log(colors.green("Captcha Audio not detected, continuing..."));
     } else {
-      console.log(colors.red("Error handling audio captcha:"));
       // Handle other errors as needed, possibly retry or log them
+      console.log(colors.red("Error handling audio captcha:"));
     }
   }
 }

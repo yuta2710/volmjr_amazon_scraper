@@ -1,9 +1,6 @@
-import { BestSellerRank } from './../../modules/products/product.types';
-import {
-  CategoryHelper,
-  CategoryNode,
-} from "../../modules/category/category.model";
+import { CategoryHelper, CategoryNode } from '../../modules/category/category.model';
 import { ElementHandle } from "puppeteer";
+import { BestSellerRank, CamelPriceComparison } from '../types';
 
 export enum FilterProductAttributesFromUrl {
   ASIN,
@@ -40,13 +37,13 @@ export const filterAsinFromUrl = (
 };
 
 export const filterComponentsOfPrice = (rawData: string): [string, number] => {
-  return [rawData.split("")[0], Number(rawData.replace("$", ""))];
+  return [rawData.split("")[0], parseFloat(rawData.replace("$", "").replace(/,/g, ''))];
 };
 
 export const filterLocationAndDateOfCommentItem = (
   rawData: string,
 ): string[] => {
-  const regex = /in the (.*?) on (.*)/;
+  const regex = /in (.*?) on (.*)/;
   const match = rawData.match(regex);
 
   if (match) {
@@ -166,11 +163,20 @@ export const filterQueryType = (
 
 export const filterBestSellerRanks = (data: string[]): BestSellerRank[] => {
   let filteredBestSellerRankings: BestSellerRank[] = data.map((rankString) => {
-    const rankMatch = rankString.match(/#(\d+)/);
+    const rankMatch = rankString.match(/#([\d,]+)/); // Updated regex to capture digits and commas
     const categoryMatch = rankString.match(/in\s+(.+?)(\s+\(See Top 100|\s*$)/);
 
+    if (rankMatch && rankMatch[1]) {
+      const rankNumeric: number = parseInt(rankMatch[1].replace(/,/g, ''), 10); // Remove commas before converting
+      console.log(`Rank value: #${rankNumeric}`);
+    }
+
+    if (categoryMatch && categoryMatch[1]) {
+      console.log(`Category value: ${categoryMatch[1].trim()}`);
+    }
+
     return {
-      rank: rankMatch ? `#${rankMatch[1]}` : "",
+      rank: rankMatch ? `#${rankMatch[1].replace(/,/g, '')}` : "", // Store the rank with commas removed
       categoryMarket: categoryMatch ? categoryMatch[1].trim() : "",
     };
   });
@@ -184,3 +190,34 @@ export const filterBestSellerRanks = (data: string[]): BestSellerRank[] => {
 
   return filteredBestSellerRankings;
 };
+
+export const isValidPriceFormat = (priceStr: string): boolean => {
+  // Regex to match the format "$1,299.95"
+  const priceRegex = /^\$\d{1,3}(,\d{3})*(\.\d{2})?$/;
+
+  // Test the string against the regex
+  return priceRegex.test(priceStr);
+}
+
+
+export const filterComparisonPriceTextFromCamel = (htmlRawText: string): CamelPriceComparison => {
+  const regex = /Amazon\s+\$([\d,.]+)[\s\S]*?\$([\d,.]+)[\s\S]*?\$([\d,.]+)[\s\S]*?\$([\d,.]+)/;
+  const match = htmlRawText.match(regex);
+
+  if (match) {
+    const result: CamelPriceComparison = {
+      lowestPrice: parseFloat(match[1].replace(/,/g, '')),
+      highestPrice: parseFloat(match[2].replace(/,/g, '')),
+      averagePrice: parseFloat(match[3].replace(/,/g, '')),
+      currentPrice: parseFloat(match[4].replace(/,/g, '')),
+    };  
+
+    console.log("Result of price")
+    console.log(result)
+
+    return result;
+  } else {
+    console.log("No match found.");
+  }
+
+}

@@ -1,4 +1,4 @@
-import BaseController from "@/shared/controller";
+import BaseController from "../../shared/controller";
 import BaseProductService from "./product.service";
 import { NextFunction, Request, Response, Router } from "express";
 
