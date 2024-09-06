@@ -16,7 +16,6 @@ export const retrieveProductPriceHistoryGroup = async (
 
   //visit target website
   await page.goto(`https://camelcamelcamel.com/product/${asin}`, {
-    //wait for website to load
     waitUntil: "load",
   });
   const html = await page.$eval("body", (el) => el.textContent.trim());

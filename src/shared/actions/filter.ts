@@ -203,9 +203,14 @@ export const isValidPriceFormat = (priceStr: string): boolean => {
 export const filterComparisonPriceTextFromCamel = (htmlRawText: string): CamelPriceComparison => {
   const regex = /Amazon\s+\$([\d,.]+)[\s\S]*?\$([\d,.]+)[\s\S]*?\$([\d,.]+)[\s\S]*?\$([\d,.]+)/;
   const match = htmlRawText.match(regex);
-
+  let result: CamelPriceComparison = {
+    lowestPrice: 0,
+    highestPrice: 0,
+    averagePrice: 0,
+    currentPrice: 0,
+  }
   if (match) {
-    const result: CamelPriceComparison = {
+    result = {
       lowestPrice: parseFloat(match[1].replace(/,/g, '')),
       highestPrice: parseFloat(match[2].replace(/,/g, '')),
       averagePrice: parseFloat(match[3].replace(/,/g, '')),
@@ -218,6 +223,7 @@ export const filterComparisonPriceTextFromCamel = (htmlRawText: string): CamelPr
     return result;
   } else {
     console.log("No match found.");
+    return result;
   }
 
 }

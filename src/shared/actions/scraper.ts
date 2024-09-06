@@ -143,8 +143,7 @@ export async function scrapeAmazonProduct(
         while (retries > 0 && !success) {
           try {
             await page.goto(comment_url, {
-              waitUntil: "domcontentloaded",
-              timeout: 10000,
+              waitUntil: "load",
             }); // Timeout after 10 seconds
 
             // Explicitly wait for an expected element on the comments page
@@ -749,6 +748,18 @@ async function scrapeCommentsRecursively(
     );
 
     let currentUrlOfComment: string = "";
+    let foundedUrl: string = "";
+
+    try {
+      foundedUrl = await queryListOfComments[i].$eval(".a-size-base.review-title.a-link-normal.a-color-base.review-title-content.a-text-bold", el => el.getAttribute("href"));
+      console.log(`Current url comment in tag A: ${foundedUrl}`);
+      if(foundedUrl){
+        currentUrlOfComment = foundedUrl;
+      }
+    } catch (error) {
+      console.log("Current url of comment not found");
+    }
+
 
     commentItem = {
       rating: filtratedRating,
@@ -764,6 +775,13 @@ async function scrapeCommentsRecursively(
         emotion: averageSentimentEmotion,
       },
     };
+
+    console.log({
+      title: filtratedTitle,
+      url: commentItem.url
+    })
+
+    // console.log(commentItem);
     collectedComments.push(commentItem);
   }
 

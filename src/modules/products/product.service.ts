@@ -223,12 +223,10 @@ export default class BaseProductService {
 
     if (scrapedDataResponse != null) {
       console.log("Product nay ko null");
-      // console.log(scrapedDataResponse.product);
-      // console.log(scrapedDataResponse.category);
-      // console.log(scrapedDataResponse);
     } else {
       console.log("Product nay null");
     }
+    
     res.status(200).json({
       success: true,
       message: "Scraped data successfully",

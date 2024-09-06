@@ -59,10 +59,12 @@ export default class AmazonCategoryRepository {
     const categoryId = await this.checkAndInsertCategory(node, parentId);
   
     // Recursively save all child nodes
-    for (const child of node.children) {
-      await this.saveCategoryHierarchy(child, categoryId);
+    if(node.children){
+      for (const child of node.children) {
+        await this.saveCategoryHierarchy(child, categoryId);
+      }
+    
+      return categoryId;
     }
-  
-    return categoryId;
   }
 }
