@@ -108,10 +108,7 @@ export async function scrapeAmazonProduct(
   console.log(priceHistoryGroup);
 
   if (priceHistoryGroup) {
-    scrapedProduct.price.lowestPrice = priceHistoryGroup?.lowestPrice;
-    scrapedProduct.price.highestPrice = priceHistoryGroup?.highestPrice;
-    scrapedProduct.price.currentPrice = priceHistoryGroup?.currentPrice;
-    scrapedProduct.price.averagePrice = priceHistoryGroup?.averagePrice;
+    scrapedProduct.price.priceHistory = priceHistoryGroup as CamelPriceComparison;
   }
 
   console.log("Oh shiet processed price");
@@ -503,10 +500,7 @@ async function collectProductDataExceptForeignField(
       amount: filteredPriceAsNumeric,
       currency,
       displayAmount: String(currentPrice),
-      currentPrice: filteredPriceAsNumeric,
       originalPrice: originalPriceMetric || filteredPriceAsNumeric,
-      highestPrice: originalPriceMetric,
-      lowestPrice: filteredPriceAsNumeric,
       savings: {
         percentage: percentage !== undefined ? percentage : "",
         currency,
@@ -752,7 +746,7 @@ async function scrapeCommentsRecursively(
 
     try {
       foundedUrl = await queryListOfComments[i].$eval(".a-size-base.review-title.a-link-normal.a-color-base.review-title-content.a-text-bold", el => el.getAttribute("href"));
-      console.log(`Current url comment in tag A: ${foundedUrl}`);
+      // console.log(`Current url comment in tag A: ${foundedUrl}`);
       if(foundedUrl){
         currentUrlOfComment = foundedUrl;
       }
@@ -776,10 +770,10 @@ async function scrapeCommentsRecursively(
       },
     };
 
-    console.log({
-      title: filtratedTitle,
-      url: commentItem.url
-    })
+    // console.log({
+    //   title: filtratedTitle,
+    //   url: commentItem.url
+    // })
 
     // console.log(commentItem);
     collectedComments.push(commentItem);

@@ -86,6 +86,27 @@ export default class BaseProductService {
           scrapedProductFromBrowser.category = insertedCategoryId as number;
         }
         // console.log(validatedPrice);
+        // const validatedPrice = {
+        //   amount: scrapedProductFromBrowser.price.amount ?? 0,
+        //   currency: scrapedProductFromBrowser.price.currency ?? "$",
+        //   displayAmount: scrapedProductFromBrowser.price.displayAmount ?? "",
+        //   originalPrice:
+        //     scrapedProductFromBrowser.price.originalPrice > 0
+        //       ? scrapedProductFromBrowser.price.originalPrice
+        //       : 0, // Ensure valid value or null
+        //   priceHistory: scrapedProductFromBrowser.priceHistory,
+        //   savings: {
+        //     amount: scrapedProductFromBrowser.price.savings?.amount ?? 0,
+        //     currency: scrapedProductFromBrowser.price.savings?.currency ?? "",
+        //     displayAmount:
+        //       scrapedProductFromBrowser.price.savings?.displayAmount ?? "",
+        //     percentage:
+        //       scrapedProductFromBrowser.price.savings?.percentage?.replace(
+        //         "-",
+        //         "",
+        //       ) ?? "", // Handle empty strings
+        //   },
+        // },
 
         const productInsertData: BaseProductInsert = {
           // Map and validate your scraped data to the expected structure
@@ -96,19 +117,12 @@ export default class BaseProductService {
           price: {
             amount: scrapedProductFromBrowser.price.amount ?? 0,
             currency: scrapedProductFromBrowser.price.currency ?? "$",
-            averagePrice: scrapedProductFromBrowser.price.averagePrice,
             displayAmount: scrapedProductFromBrowser.price.displayAmount ?? "",
-            currentPrice: scrapedProductFromBrowser.price.currentPrice ?? 0,
             originalPrice:
               scrapedProductFromBrowser.price.originalPrice > 0
                 ? scrapedProductFromBrowser.price.originalPrice
                 : 0, // Ensure valid value or null
-            highestPrice:
-              scrapedProductFromBrowser.price.highestPrice > 0
-                ? scrapedProductFromBrowser.price.highestPrice
-                : 0, // Ensure valid value or null,
-            
-            lowestPrice: scrapedProductFromBrowser.price.lowestPrice ?? 0,
+            priceHistory: scrapedProductFromBrowser.price.priceHistory,
             savings: {
               amount: scrapedProductFromBrowser.price.savings?.amount ?? 0,
               currency: scrapedProductFromBrowser.price.savings?.currency ?? "",
@@ -215,7 +229,7 @@ export default class BaseProductService {
           if (error) {
             console.error("Error inserting comments:", error.message);
           } else {
-            console.log("\nSuccessfully inserted bulk of comments:", data);
+            console.log("\nSuccessfully inserted bulk of comments");
           }
         } catch (error) {}
       }

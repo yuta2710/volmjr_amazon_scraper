@@ -20,15 +20,24 @@ export const retrieveProductPriceHistoryGroup = async (
   });
   const html = await page.$eval("body", (el) => el.textContent.trim());
 
-  console.log("HTML Content");
-  console.log(html);
+  // console.log("HTML Content");
+  // console.log(html);
 
   let htmlContentOfPriceComparisonFromCamel = "";
   let priceComparisonFromCamel: CamelPriceComparison = {
-    lowestPrice: 0,
-    highestPrice: 0,
+    lowestPrice: {
+      latestDate: "",
+      value: 0
+    },
+    highestPrice: {
+      latestDate: "",
+      value: 0
+    },
+    currentPrice: {
+      latestDate: "",
+      value: 0
+    },
     averagePrice: 0,
-    currentPrice: 0,
   };
 
   try {

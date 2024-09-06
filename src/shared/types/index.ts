@@ -22,11 +22,8 @@ export type BaseProduct = {
     amount?: number | 0;
     currency?: string | "$";
     displayAmount?: string | "";
-    currentPrice?: number | 0;
     originalPrice?: number | 0;
-    highestPrice?: number | 0;
-    lowestPrice?: number | 0;
-    averagePrice?: number | 0;
+    priceHistory?: CamelPriceComparison;
     savings?: {
       amount?: number | 0;
       currency?: string | "";
@@ -112,8 +109,17 @@ export type CategoryProps ={
 }
 
 export type CamelPriceComparison = {
-  lowestPrice?: number | 0;
-  highestPrice?: number | 0;
-  currentPrice?: number | 0;
+  lowestPrice?: {
+    latestDate: string;
+    value: number | 0;
+  };
+  highestPrice?: {
+    latestDate: string;
+    value: number | 0;
+  };
+  currentPrice?: {
+    latestDate: string;
+    value: number | 0;
+  };
   averagePrice?: number | 0;
 }

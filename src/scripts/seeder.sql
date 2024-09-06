@@ -49,11 +49,31 @@ CREATE TABLE base_products (
       (price ? 'amount' IS FALSE OR jsonb_typeof(price->'amount') = 'number') AND
       (price ? 'currency' IS FALSE OR jsonb_typeof(price->'currency') = 'string') AND
       (price ? 'displayAmount' IS FALSE OR jsonb_typeof(price->'displayAmount') = 'string') AND
-      (price ? 'currentPrice' IS FALSE OR jsonb_typeof(price->'currentPrice') = 'number') AND
-      (price ? 'originalPrice' IS FALSE OR jsonb_typeof(price->'originalPrice') = 'number') AND
-      (price ? 'highestPrice' IS FALSE OR jsonb_typeof(price->'highestPrice') = 'number') AND
-      (price ? 'lowestPrice' IS FALSE OR jsonb_typeof(price->'lowestPrice') = 'number') AND
-      (price ? 'averagePrice' IS FALSE OR jsonb_typeof(price->'averagePrice') = 'number') AND
+      
+      -- Price History Check for CamelPriceComparison (lowestPrice, highestPrice, etc.)
+      (price ? 'priceHistory' IS FALSE OR (
+          jsonb_typeof(price->'priceHistory') = 'object' AND
+          (price->'priceHistory' ? 'lowestPrice' IS FALSE OR (
+            jsonb_typeof(price->'priceHistory'->'lowestPrice') = 'object' AND
+            jsonb_typeof(price->'priceHistory'->'lowestPrice'->'value') = 'number' AND
+            jsonb_typeof(price->'priceHistory'->'lowestPrice'->'latestDate') = 'string'
+          )) AND
+          (price->'priceHistory' ? 'highestPrice' IS FALSE OR (
+            jsonb_typeof(price->'priceHistory'->'highestPrice') = 'object' AND
+            jsonb_typeof(price->'priceHistory'->'highestPrice'->'value') = 'number' AND
+            jsonb_typeof(price->'priceHistory'->'highestPrice'->'latestDate') = 'string'
+          )) AND
+          (price->'priceHistory' ? 'currentPrice' IS FALSE OR (
+            jsonb_typeof(price->'priceHistory'->'currentPrice') = 'object' AND
+            jsonb_typeof(price->'priceHistory'->'currentPrice'->'value') = 'number' AND
+            jsonb_typeof(price->'priceHistory'->'currentPrice'->'latestDate') = 'string'
+          )) AND
+          (price->'priceHistory' ? 'averagePrice' IS FALSE OR (
+            jsonb_typeof(price->'priceHistory'->'averagePrice') = 'number'
+          ))
+      )) AND
+
+      -- Savings check remains the same
       (price ? 'savings' IS FALSE OR (
           jsonb_typeof(price->'savings') = 'object' AND
           (price->'savings' ? 'amount' IS FALSE OR jsonb_typeof(price->'savings'->'amount') = 'number') AND

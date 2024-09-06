@@ -28,6 +28,10 @@ yarn-error.log*
 # local env files
 .env*.local
 
+/dist
+
+.env
+
 # vercel
 .vercel
 
@@ -38,3 +42,4 @@ next-env.d.ts
 .venv
 
 NOTE.MD
+.gitignore

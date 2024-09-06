@@ -1,6 +1,9 @@
-import { CategoryHelper, CategoryNode } from '../../modules/category/category.model';
+import {
+  CategoryHelper,
+  CategoryNode,
+} from "../../modules/category/category.model";
 import { ElementHandle } from "puppeteer";
-import { BestSellerRank, CamelPriceComparison } from '../types';
+import { BestSellerRank, CamelPriceComparison } from "../types";
 
 export enum FilterProductAttributesFromUrl {
   ASIN,
@@ -37,7 +40,10 @@ export const filterAsinFromUrl = (
 };
 
 export const filterComponentsOfPrice = (rawData: string): [string, number] => {
-  return [rawData.split("")[0], parseFloat(rawData.replace("$", "").replace(/,/g, ''))];
+  return [
+    rawData.split("")[0],
+    parseFloat(rawData.replace("$", "").replace(/,/g, "")),
+  ];
 };
 
 export const filterLocationAndDateOfCommentItem = (
@@ -167,7 +173,7 @@ export const filterBestSellerRanks = (data: string[]): BestSellerRank[] => {
     const categoryMatch = rankString.match(/in\s+(.+?)(\s+\(See Top 100|\s*$)/);
 
     if (rankMatch && rankMatch[1]) {
-      const rankNumeric: number = parseInt(rankMatch[1].replace(/,/g, ''), 10); // Remove commas before converting
+      const rankNumeric: number = parseInt(rankMatch[1].replace(/,/g, ""), 10); // Remove commas before converting
       console.log(`Rank value: #${rankNumeric}`);
     }
 
@@ -176,7 +182,7 @@ export const filterBestSellerRanks = (data: string[]): BestSellerRank[] => {
     }
 
     return {
-      rank: rankMatch ? `#${rankMatch[1].replace(/,/g, '')}` : "", // Store the rank with commas removed
+      rank: rankMatch ? `#${rankMatch[1].replace(/,/g, "")}` : "", // Store the rank with commas removed
       categoryMarket: categoryMatch ? categoryMatch[1].trim() : "",
     };
   });
@@ -186,7 +192,7 @@ export const filterBestSellerRanks = (data: string[]): BestSellerRank[] => {
       ? filteredBestSellerRankings.filter(
           (category) => category.rank !== "" && category.categoryMarket !== "",
         )
-      : [{ rank: "", categoryMarket: "" }] as BestSellerRank[];
+      : ([{ rank: "", categoryMarket: "" }] as BestSellerRank[]);
 
   return filteredBestSellerRankings;
 };
@@ -194,36 +200,81 @@ export const filterBestSellerRanks = (data: string[]): BestSellerRank[] => {
 export const isValidPriceFormat = (priceStr: string): boolean => {
   // Regex to match the format "$1,299.95"
   const priceRegex = /^\$\d{1,3}(,\d{3})*(\.\d{2})?$/;
-
   // Test the string against the regex
   return priceRegex.test(priceStr);
-}
+};
 
-
-export const filterComparisonPriceTextFromCamel = (htmlRawText: string): CamelPriceComparison => {
-  const regex = /Amazon\s+\$([\d,.]+)[\s\S]*?\$([\d,.]+)[\s\S]*?\$([\d,.]+)[\s\S]*?\$([\d,.]+)/;
+export const filterComparisonPriceTextFromCamel = (
+  htmlRawText: string,
+): CamelPriceComparison => {
+  // const regex = /Amazon\s+\$([\d,.]+)[\s\S]*?\$([\d,.]+)[\s\S]*?\$([\d,.]+)[\s\S]*?\$([\d,.]+)/;
+  const regex =
+    /Amazon\s+\$([\d,.]+)\s+\(([\w\s,]+)\)[\s\S]*?\$([\d,.]+)\s+\(([\w\s,]+)\)[\s\S]*?\$([\d,.]+)\s+\(([\w\s,]+)\)[\s\S]*?\$([\d,.]+)\s+\(([\w\s,]+)\)/;
   const match = htmlRawText.match(regex);
   let result: CamelPriceComparison = {
-    lowestPrice: 0,
-    highestPrice: 0,
+    lowestPrice: {
+      latestDate: "",
+      value: 0,
+    },
+    highestPrice: {
+      latestDate: "",
+      value: 0,
+    },
+    currentPrice: {
+      latestDate: "",
+      value: 0,
+    },
     averagePrice: 0,
-    currentPrice: 0,
-  }
+  };
   if (match) {
-    result = {
-      lowestPrice: parseFloat(match[1].replace(/,/g, '')),
-      highestPrice: parseFloat(match[2].replace(/,/g, '')),
-      averagePrice: parseFloat(match[3].replace(/,/g, '')),
-      currentPrice: parseFloat(match[4].replace(/,/g, '')),
-    };  
+    console.log("Fucking match");
+    // console.log(match)
+    const AVG_PRICE_EXTRACTOR_REGEX = /\$\d+\.\d{2}(?=\s*\n\s*3rd Party New)/;
+    const isAverageMatch = match[0].match(AVG_PRICE_EXTRACTOR_REGEX);
 
-    console.log("Result of price")
-    console.log(result)
+    if (isAverageMatch) {
+      const averagePrice = isAverageMatch[0].replace("$", "");
+      console.log("Louis con cac");
+      console.log(averagePrice);
+      result = {
+        lowestPrice: {
+          latestDate: incrementDayByString(match[2]),
+          value: parseFloat(match[1].replace(/,/g, "")),
+        },
+        highestPrice: {
+          latestDate: incrementDayByString(match[4]),
+          value: parseFloat(match[3].replace(/,/g, "")),
+        },
+        currentPrice: {
+          latestDate: incrementDayByString(match[6]),
+          value: parseFloat(match[5].replace(/,/g, "")),
+        },
+        averagePrice: parseFloat(averagePrice.replace(/,/g, "")),
+      };
+    }
+
+    console.log("Result of price");
+    console.log(result);
 
     return result;
   } else {
     console.log("No match found.");
     return result;
   }
+};
 
-}
+export const incrementDayByString = (rawStr: string): string => {
+  // Parse the date string
+  const date = new Date(rawStr);
+
+  // Increment the day by 1
+  date.setDate(date.getDate() + 1);
+
+  // Get the incremented day in the format: "MMM DD, YYYY"
+  const options: any = { year: "numeric", month: "short", day: "numeric" };
+  const incrementedDateString = date.toLocaleDateString("en-US", options);
+
+  console.log(incrementedDateString);
+
+  return incrementedDateString;
+};
