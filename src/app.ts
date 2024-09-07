@@ -30,7 +30,7 @@ export default class App {
   }
 
   private initDatabaseConnection(): void {
-
+    
   }
 
   private async initRedisConnection() {

@@ -33,17 +33,18 @@ export default class AmazonCategoryRepository {
       // console.error("Name of cat node = ", catNode.name)
       // console.error("Name of cat node trim = ", catNode.name.trim())
       const { data: existData, error } = await this.categoryRepository
-        .from("category")
-        .select("id")
-        .eq("name", catNode.name)
-        .single();
-
+      .from("category")
+      .select("id")
+      .eq("name", catNode.name)
+      .single();
+      
       console.error("\n\n Exist data of category");
       console.log(existData);
+      console.log(catNode, parentId);
 
       if (error || !existData) {
         const { data: insertData, error: insertError } =
-          await this.categoryRepository
+          await supabase
             .from("category")
             .insert({
               name: catNode.name,
@@ -52,6 +53,9 @@ export default class AmazonCategoryRepository {
               parent_id: parentId,
             })
             .select();
+        
+        console.log("Inserted data category")
+        console.log(insertData)
 
         if (insertError) throw insertError;
         return insertData[0].id;

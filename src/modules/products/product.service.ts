@@ -31,7 +31,7 @@ export default class BaseProductService {
   private categoryRepository: AmazonCategoryRepository =
     new AmazonCategoryRepository(
       String(process.env.SUPABASE_URL),
-      String(process.env.SUPABASE_ANON_KEY),
+      String(process.env.PUBLIC_SUPABASE_ANON_KEY),
     );
   private productRepository = new AmazonBaseProductRepository(
     String(process.env.SUPABASE_URL),
