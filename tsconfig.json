@@ -13,7 +13,7 @@
       "@/core/*": ["core/*"],
       "@/data/*": ["data/*"],
       "@/shared/*": ["shared/*"]
-    }
+    },
   },
   "include": ["src/**/*"],
   // "files": ["src/seeder.ts"]

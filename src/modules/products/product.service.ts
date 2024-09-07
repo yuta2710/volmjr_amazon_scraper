@@ -17,7 +17,6 @@ import AmazonCategoryRepository from "../category/category.repository";
 import CommentRepository from "../comments/comment.repository";
 
 type BaseProductInsert = TablesInsert<"base_products">;
-type BaseCommentInsert = TablesInsert<"comments">;
 
 const supabase = createClient<Database>(
   process.env.SUPABASE_URL,

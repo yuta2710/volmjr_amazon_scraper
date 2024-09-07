@@ -230,7 +230,7 @@ export const filterComparisonPriceTextFromCamel = (
     averagePrice: 0,
   };
   if (match) {
-    console.log("Fucking match");
+    // console.log("Fucking match");
     // console.log(match)
     const AVG_PRICE_EXTRACTOR_REGEX = /\$\d+\.\d{2}(?=\s*\n\s*3rd Party New)/;
     const isAverageMatch = match[0].match(AVG_PRICE_EXTRACTOR_REGEX);
@@ -279,4 +279,16 @@ export const incrementDayByString = (rawStr: string): string => {
   return incrementedDateString;
 };
 
+export const getCommonWordOfTwoString = (text1: string, text2: string): string => {
+  var str1 = "IloveLinux";
+  var str2 = "weloveNodejs";
 
+  var arr1 = str1.split("");
+  var arr2 = str2.split("");
+
+  var matchingElements = arr1.filter(function(item) {
+    return arr2.indexOf(item) > -1;
+  });
+
+  return matchingElements.length > 0 ? matchingElements.join(" ") : ""
+}

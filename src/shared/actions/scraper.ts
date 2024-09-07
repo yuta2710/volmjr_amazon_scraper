@@ -1,5 +1,5 @@
-import util from 'util';
-"use server";
+import util from "util";
+("use server");
 
 import puppeteer, { ElementHandle, Page } from "puppeteer";
 import { exec } from "child_process";
@@ -28,10 +28,9 @@ import {
 import { CategoryNode } from "../../modules/category/category.model";
 import colors from "colors";
 import { retrieveProductPriceHistoryGroup } from "./camel+browser";
-// const translate = require("translate")
-// const translate = await import('translate');
-const execPromise = util.promisify(exec);
+import { extractKeywordsTFIDF } from "./test";
 
+const execPromise = util.promisify(exec);
 
 /**
  * Scrapes product information and reviews from an Amazon product page.
@@ -46,10 +45,10 @@ export async function scrapeAmazonProduct(
   // const browser = await puppeteer.launch({ headless: true });
   const browser = await puppeteer.launch({
     // headless: Boolean(process.env.HEADLESS_MODE),
-    headless: true,
+    headless: false,
   });
   const page = await browser.newPage();
-  await page.goto(url, {waitUntil: "load"});
+  await page.goto(url, { waitUntil: "load" });
 
   await checkAndSolveNormalCaptcha(page);
 
@@ -85,6 +84,7 @@ export async function scrapeAmazonProduct(
     categoryContainerSelectorList = await page.$$(
       "#wayfinding-breadcrumbs_feature_div ul > li",
     );
+
     // Ensure we have elements in the list
     if (
       categoryContainerSelectorList &&
@@ -111,8 +111,34 @@ export async function scrapeAmazonProduct(
     await retrieveProductPriceHistoryGroup(scrapedProduct.asin);
 
   if (priceHistoryGroup) {
-    scrapedProduct.price.priceHistory = priceHistoryGroup as CamelPriceComparison;
+    scrapedProduct.price.priceHistory =
+      priceHistoryGroup as CamelPriceComparison;
   }
+  const actualCategoryUrl = await page.$eval("#wayfinding-breadcrumbs_feature_div ul li:last-child span a", el => el.getAttribute("href"));
+  console.log("Actual browser ", actualCategoryUrl)
+  await page.goto(`https://${String(process.env.AMAZON_DOMAIN)}${actualCategoryUrl}`, {waitUntil: "load"})
+
+  const bestSellerUrl = await page.$eval("#s-result-sort-select option:nth-child(5)", el => el.getAttribute("data-url"))
+  console.log(`Link of bestSellerUrl`);
+  console.log(bestSellerUrl)
+
+
+  await page.goto(`https://${String(process.env.AMAZON_DOMAIN)}${bestSellerUrl}`, {waitUntil: "load"})
+
+  const html = await page.$$(
+    ".sg-col-4-of-24.sg-col-4-of-12.s-result-item.s-asin.sg-col-4-of-16.sg-col.s-widget-spacing-small.sg-col-4-of-20.gsx-ies-anchor"
+    // el => el.textContent.trim()
+  )
+
+  console.log("HTML Content Best Seller Product")
+  console.log(html.length)
+
+
+  await page.goBack({waitUntil: "load"});
+  await page.goBack({waitUntil: "load"});
+
+  await page.reload();
+  // Example product titles (from your screenshots)
 
   // After format asin, title, price...., navigate to comment page
   // Wait for the review button to appear and be clickable
@@ -120,7 +146,7 @@ export async function scrapeAmazonProduct(
 
   try {
     reviewButton = await page.waitForSelector(".a-link-emphasis.a-text-bold", {
-      timeout: 5000,
+      timeout: 50000,
     });
 
     if (reviewButton) {
@@ -170,7 +196,7 @@ export async function scrapeAmazonProduct(
           await scrapeCommentsRecursively(page);
         console.log(
           colors.green(
-            `Number of the collected comments: ${collectedComments.length}`,
+            `Total of the collected comments: ${collectedComments.length}`,
           ),
         );
 
@@ -238,7 +264,6 @@ export async function scrapeAmazonProduct(
       } as AmazonScrapedResponse;
     }
   } catch (error) {
-    console.error("Fuck that shit");
     return {
       product: scrapedProduct,
       comments: [],
@@ -460,21 +485,14 @@ async function collectProductDataExceptForeignField(
         (el) => el.textContent.trim().toLowerCase(),
       );
       percentage = percentageText;
-
-      console.log("Percentage text: ", percentage);
     }
   } catch (error) {
     console.log(colors.red("Percentage currently not available to display"));
   }
 
-  // const dateFirstAvailable = await page.$eval(".a-color-secondary.a-size-base.prodDetSectionEntry", el => el.textContent.trim());
-  // console.log(`Date First Available: ${dateFirstAvailable}`)
-
   const bestSellerRankJson = await getBestSellerRankByHtmlElement(page);
-
   const bestSellerRankArr: string[] =
     bestSellerRankJson["attributeVal"].split("   ");
-
   const filteredBestSellerRank: BestSellerRank[] = filterBestSellerRanks(
     bestSellerRankArr as string[],
   );
@@ -674,7 +692,8 @@ async function scrapeCommentsRecursively(
     let processedDescription = filterNewlineSeparatedText(
       description as string,
     );
-    const filtratedDescription = await translateText(processedDescription)
+    const filtratedDescription = await translateText(processedDescription);
+
     let isVerifiedPurchase: boolean = false;
 
     try {
@@ -717,12 +736,16 @@ async function scrapeCommentsRecursively(
     let filtratedRating = "";
 
     if (filtratedTitleAndRatingAsList.length > 1) {
+      filtratedTitle = await translateText(
+        filtratedTitleAndRatingAsList[1].trim(),
+      );
       filtratedRating = filtratedTitleAndRatingAsList[0].trim();
-      filtratedTitle = await translateText(filtratedTitleAndRatingAsList[1].trim());
     }
 
     if (filtratedTitleAndRatingAsList.length > 0 && commentRating) {
-      filtratedTitle = await translateText(filtratedTitleAndRatingAsList[0].trim());
+      filtratedTitle = await translateText(
+        filtratedTitleAndRatingAsList[0].trim(),
+      );
       filtratedRating = commentRating.trim();
     }
 
@@ -745,17 +768,21 @@ async function scrapeCommentsRecursively(
     let foundedUrl: string = "";
 
     try {
-      foundedUrl = await queryListOfComments[i].$eval(".a-size-base.review-title.a-link-normal.a-color-base.review-title-content.a-text-bold", el => el.getAttribute("href"));
+      foundedUrl = await queryListOfComments[i].$eval(
+        ".a-size-base.review-title.a-link-normal.a-color-base.review-title-content.a-text-bold",
+        (el) => el.getAttribute("href"),
+      );
       // console.log(`Current url comment in tag A: ${foundedUrl}`);
-      if(foundedUrl){
+      if (foundedUrl) {
         currentUrlOfComment = foundedUrl;
       }
     } catch (error) {
       console.log("Current url of comment not found");
     }
 
-
-    console.log(`The filtrated description after translated ${filtratedDescription}`)
+    console.log(
+      `The filtrated description after translated ${filtratedDescription}`,
+    );
     commentItem = {
       rating: filtratedRating,
       title: filtratedTitle,
@@ -889,7 +916,7 @@ async function checkAndSolveNormalCaptcha(page: Page): Promise<void> {
         "../../../src/scripts/normal+captcha.py",
       );
       const command = `python ${executablePath} ${captchaPhotoRemoteUrl}`;
-      console.log(command)
+      console.log(command);
 
       exec(command, async (error, stdout, stderr) => {
         const captureValue = stdout.trim();
@@ -1026,11 +1053,10 @@ async function checkAndHandleCaptchaAudio(page: Page) {
   }
 }
 
-
-const translateText = async(text: string) => {
+const translateText = async (text: string) => {
   const executablePath = path.join(
     __dirname,
-    "../../../src/scripts/translator.py"
+    "../../../src/scripts/translator.py",
   );
 
   const command = `python ${executablePath} "${text}"`;
@@ -1055,4 +1081,4 @@ const translateText = async(text: string) => {
     console.error("Error executing command: ", error);
     throw error; // Optionally throw the error for handling later
   }
-}
+};

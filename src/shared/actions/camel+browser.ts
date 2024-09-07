@@ -52,8 +52,8 @@ export const retrieveProductPriceHistoryGroup = async (
       (el) => el.textContent.trim(),
     );
 
-    console.log("Price comparison data:");
-    console.log(htmlContentOfPriceComparisonFromCamel);
+    // console.log("Price comparison data:");
+    // console.log(htmlContentOfPriceComparisonFromCamel);
 
     if (htmlContentOfPriceComparisonFromCamel) {
       priceComparisonFromCamel = filterComparisonPriceTextFromCamel(
