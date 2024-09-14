@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { CategoryNode } from "../../modules/category/category.model";
 import { Database, Tables, TablesInsert } from "./database.types";
+import { UserRole } from '../constants';
 
 export declare type BaseProductInsert = TablesInsert<"base_products">;
 export declare type BaseCommentInsert = TablesInsert<"comments">;
@@ -123,3 +124,26 @@ export type CamelPriceComparison = {
   };
   averagePrice?: number | 0;
 }
+
+export type AuthenticationRequest = { 
+  email: string;
+  password: string; 
+}
+
+export type CoreUser = {
+  id?: number;
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+  role?: UserRole;
+  workspaces?: string[];
+  products?: BaseProduct[];
+  createdAt?: Date
+  updatedAt?: Date 
+}
+
+export type AdminUser = CoreUser & {
+  role: UserRole.ADMIN;
+}
+

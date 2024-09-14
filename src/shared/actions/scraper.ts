@@ -166,11 +166,11 @@ export async function scrapeAmazonProduct(
   //       console.log(html);
 
   //       const productDetailsTableHtml = await page.$$("table.a-normal.a-spacing-micro tbody tr");
-        
+
   //       if(productDetailsTableHtml && productDetailsTableHtml.length > 0) {
   //         console.log("productDetailsTableHtml")
   //         console.log(productDetailsTableHtml.length)
-          
+
   //         const brandValue = await page.$eval("table.a-normal.a-spacing-micro tbody tr.a-spacing-small.po-brand td.a-span9", el => el.textContent.trim());
   //         console.log(brandValue)
   //         // const brand = productDetailsTableHtml.find(el => el.$eval(""))
@@ -190,7 +190,6 @@ export async function scrapeAmazonProduct(
   // await page.goBack({ waitUntil: "load" });
 
   // await page.reload();
-
 
   // Example product titles (from your screenshots)
 
@@ -213,6 +212,7 @@ export async function scrapeAmazonProduct(
 
         const comment_url = `${page.url()}&sortBy=recent&pageNumber=1`;
         console.log(colors.cyan("After navigate = "), comment_url);
+        
         // Implement retry mechanism for page navigation
         let retries = 10;
         let success = false;
@@ -367,6 +367,7 @@ async function collectProductDataExceptForeignField(
   } catch (error) {
     console.error("Price text in apexPriceToPay not found");
   }
+
   try {
     currentPriceText = (
       await page.$eval(
@@ -387,11 +388,12 @@ async function collectProductDataExceptForeignField(
         (el) => el.textContent,
       )
     ).trim();
-    console.log(`Extractor = ${currentPriceText}`);
 
+    console.log(`Extractor = ${currentPriceText}`);
     console.log(
       `Is valid price format: ${isValidPriceFormat(currentPriceText)}`,
     );
+
     const isDuplicatedPriceTextValue =
       currentPriceText.match(/\$\d+(\.\d{2})?/);
 

@@ -177,6 +177,53 @@ export type Database = {
           },
         ]
       }
+      users: {
+        Row: {
+          created_at: string
+          email: string
+          first_name: string | null
+          id: number
+          last_name: string | null
+          password: string
+          products: number | null
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string
+          workspaces: string[] | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          first_name?: string | null
+          id?: number
+          last_name?: string | null
+          password: string
+          products?: number | null
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+          workspaces?: string[] | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          first_name?: string | null
+          id?: number
+          last_name?: string | null
+          password?: string
+          products?: number | null
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+          workspaces?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "users_products_fkey"
+            columns: ["products"]
+            isOneToOne: false
+            referencedRelation: "base_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -202,7 +249,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      user_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never

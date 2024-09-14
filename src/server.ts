@@ -1,9 +1,11 @@
 import App from "./app";
 import "dotenv/config";
 import AmazonBaseProductController from "./modules/products/product.controller";
+import AuthController from "./modules/auth/auth.controller";
 
 const app = new App([
-  new AmazonBaseProductController()
+  new AmazonBaseProductController(),
+  new AuthController()
 ], Number(process.env.PORT))
 
 console.log(process.env.HOST, process.env.PORT)

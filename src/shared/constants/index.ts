@@ -79,3 +79,10 @@ export async function readStopwordsFile(callback: any){
   xhr.send();
 }
 
+export enum UserRole {
+  ADMIN = 'admin',
+  DEFAULT = 'user',             
+}
+
+
+

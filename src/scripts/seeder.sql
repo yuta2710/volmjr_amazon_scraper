@@ -198,6 +198,41 @@ CREATE TABLE comments (
     )
 );
 
+CREATE TYPE user_role AS ENUM ('admin', 'user');
+
+-- Create User table
+CREATE TABLE user_profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id),  -- Auto-incrementing ID
+    first_name TEXT,  -- Optional first name
+    last_name TEXT,  -- Optional last name
+    role user_role NOT NULL DEFAULT 'user',  -- User role with a default value of 'user'
+    -- workspaces INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,  -- Array of workspaces (string array)
+    products INTEGER REFERENCES base_products(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),  -- Timestamp for user creation
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()  -- Timestamp for last update
+);
+
+-- -- Trigger to automatically update 'updated_at' column on user update
+CREATE OR REPLACE FUNCTION update_users_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_users_updated_at
+BEFORE UPDATE ON user_profiles
+FOR EACH ROW
+EXECUTE FUNCTION update_users_updated_at_column();
+
+-- Create a junction table to represent the many-to-many relationship
+CREATE TABLE user_products (
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    product_id INT REFERENCES products(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, product_id)
+);
+
 CREATE INDEX comments_product_id_idx ON comments(product_id);
 
 ALTER TABLE base_products ADD CONSTRAINT unique_asin UNIQUE (asin);
