@@ -1,4 +1,4 @@
-import express, { Application } from 'express';
+import express, { Application, Request, Response } from 'express';
 import morgan from "morgan";
 import cors from "cors";
 import helmet from "helmet";
@@ -6,6 +6,7 @@ import compression from "compression";
 import cookieParser from "cookie-parser";
 import Redis from "ioredis";
 import BaseController from './shared/controller';
+import { protect } from './middleware/AuthenticationMiddleware';
 
 export default class App {
   public express: Application;
@@ -17,7 +18,7 @@ export default class App {
     this.initDatabaseConnection();
     this.initRedisConnection();
     this.initMiddleware();
-    this.initControllers(controllers); 
+    this.initControllers(controllers);
   }
 
   private initMiddleware(): void {

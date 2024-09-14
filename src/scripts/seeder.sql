@@ -202,7 +202,8 @@ CREATE TYPE user_role AS ENUM ('admin', 'user');
 
 -- Create User table
 CREATE TABLE user_profiles (
-    id UUID PRIMARY KEY REFERENCES auth.users(id),  -- Auto-incrementing ID
+    id SERIAL PRIMARY KEY,
+    auth_id UUID PRIMARY KEY REFERENCES auth.users(id),  -- Auto-incrementing ID
     first_name TEXT,  -- Optional first name
     last_name TEXT,  -- Optional last name
     role user_role NOT NULL DEFAULT 'user',  -- User role with a default value of 'user'

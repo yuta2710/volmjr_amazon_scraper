@@ -1,6 +1,7 @@
 import BaseController from "@/shared/controller";
 import AuthService from "./auth.service";
 import { NextFunction, Request, Response, Router } from "express";
+import { protect } from "../../middleware/AuthenticationMiddleware";
 
 export default class AuthController implements BaseController {
   path: string = "/auth";
@@ -15,6 +16,7 @@ export default class AuthController implements BaseController {
   private initRoutes = (): void => {
     this.router.route(`${this.path}/signup`).post(this.signUp)
     this.router.route(`${this.path}/signin`).post(this.signIn)
+    this.router.route(`${this.path}/me`).get(this.getMe)
   }
 
   private signUp = async (
@@ -31,5 +33,13 @@ export default class AuthController implements BaseController {
     next: NextFunction,
   ) => {
     return this.authService.signIn(req, res, next)
+  }
+
+  private getMe = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    return this.authService.getMe(req, res, next)
   }
 }

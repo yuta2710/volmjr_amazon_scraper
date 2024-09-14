@@ -177,49 +177,40 @@ export type Database = {
           },
         ]
       }
-      users: {
+      user_profiles: {
         Row: {
           created_at: string
-          email: string
           first_name: string | null
-          id: number
+          id: string
           last_name: string | null
-          password: string
           products: number | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
-          workspaces: string[] | null
         }
         Insert: {
           created_at?: string
-          email: string
           first_name?: string | null
-          id?: number
+          id: string
           last_name?: string | null
-          password: string
           products?: number | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
-          workspaces?: string[] | null
         }
         Update: {
           created_at?: string
-          email?: string
           first_name?: string | null
-          id?: number
+          id?: string
           last_name?: string | null
-          password?: string
           products?: number | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
-          workspaces?: string[] | null
         }
         Relationships: [
           {
-            foreignKeyName: "users_products_fkey"
-            columns: ["products"]
-            isOneToOne: false
-            referencedRelation: "base_products"
+            foreignKeyName: "user_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]

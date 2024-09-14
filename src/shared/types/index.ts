@@ -132,8 +132,8 @@ export type AuthenticationRequest = {
 
 export type CoreUser = {
   id?: number;
+  authId?: string;
   email: string;
-  password: string;
   firstName?: string;
   lastName?: string;
   role?: UserRole;
@@ -147,3 +147,7 @@ export type AdminUser = CoreUser & {
   role: UserRole.ADMIN;
 }
 
+export interface ValidationType {
+  fields: string[];
+  constraint: string; 
+}
