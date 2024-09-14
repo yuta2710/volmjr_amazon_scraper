@@ -1,7 +1,8 @@
-import { AuthenticationRequest, CoreUser } from "@/shared/types";
+import { AuthenticationRequest, CoreUser, UserProfileInsert } from "@/shared/types";
 import { NextFunction, Request, Response } from "express";
 import { Session as AuthSession, SupabaseClient } from "@supabase/supabase-js";
 import supabase from "../../shared/supabase";
+import { AppError } from "../../cores/errors";
 
 // Promise<{ accessToken: string; refreshToken: string }>
 export default class AuthService {
@@ -41,17 +42,22 @@ export default class AuthService {
         data: { user },
       } = await supabase.auth.getUser();
       console.log("Retrieve user data");
-      console.log(user);
+      console.log(user.identities[0]["id"]);
 
-      const sampleUserProfileDataForInsert: CoreUser = {
+      const sampleUserProfileDataForInsert: UserProfileInsert = {
+        auth_id: user.identities[0]["id"],
         email: user.email,
       } 
 
       // Create user profiles 
-      // const { data: insertedUserProfileData, error: insertError } = 
-      //   await supabase
-      //   .from("user_profiles")
-      //   .insert()
+      const { error: insertError } = 
+        await supabase
+        .from("user_profiles")
+        .insert(sampleUserProfileDataForInsert)
+
+      if(insertError){
+        throw AppError.badRequest("Cannot insert data")
+      }
 
       res
         .status(200)
@@ -84,3 +90,15 @@ export default class AuthService {
     });
   }
 }
+
+
+
+
+    // const payload: Token | jwt.JsonWebTokenError = await verifyToken(token);
+
+    // if(payload instanceof jwt.JsonWebTokenError) {
+    //   next(AppError.unauthorized("Authentication token is missing."));
+    // }
+
+    // console.log("Payload data");
+    // console.log(payload);

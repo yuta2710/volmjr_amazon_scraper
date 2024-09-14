@@ -179,27 +179,33 @@ export type Database = {
       }
       user_profiles: {
         Row: {
+          auth_id: string | null
           created_at: string
+          email: string
           first_name: string | null
-          id: string
+          id: number
           last_name: string | null
           products: number | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
         }
         Insert: {
+          auth_id?: string | null
           created_at?: string
+          email: string
           first_name?: string | null
-          id: string
+          id?: number
           last_name?: string | null
           products?: number | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
         Update: {
+          auth_id?: string | null
           created_at?: string
+          email?: string
           first_name?: string | null
-          id?: string
+          id?: number
           last_name?: string | null
           products?: number | null
           role?: Database["public"]["Enums"]["user_role"]
@@ -207,10 +213,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "user_profiles_id_fkey"
-            columns: ["id"]
-            isOneToOne: true
+            foreignKeyName: "user_profiles_auth_id_fkey"
+            columns: ["auth_id"]
+            isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_profiles_products_fkey"
+            columns: ["products"]
+            isOneToOne: false
+            referencedRelation: "base_products"
             referencedColumns: ["id"]
           },
         ]
@@ -220,18 +233,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_recursive_categories: {
-        Args: {
-          category_id: number
-        }
-        Returns: {
-          id: number
-          name: string
-          parent_id: number
-          lft: number
-          rgt: number
-        }[]
-      }
       validate_percentage: {
         Args: {
           percentage: string

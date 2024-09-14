@@ -16,7 +16,7 @@ export default class AuthController implements BaseController {
   private initRoutes = (): void => {
     this.router.route(`${this.path}/signup`).post(this.signUp)
     this.router.route(`${this.path}/signin`).post(this.signIn)
-    this.router.route(`${this.path}/me`).get(this.getMe)
+    this.router.route(`${this.path}/me`).get(protect, this.getMe)
   }
 
   private signUp = async (

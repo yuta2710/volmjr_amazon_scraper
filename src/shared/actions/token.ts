@@ -6,18 +6,22 @@ export type Token = {
   expiresIn: number; 
 }
 
-export const verifyToken = async(token: string): Promise<Token | jwt.JsonWebTokenError> => {
+export const verifyToken = async (
+  accessToken: string
+): Promise<Token | jwt.JsonWebTokenError> => {
   return new Promise((resolve, reject) => {
     jwt.verify(
-      token,
+      accessToken,
       process.env.JWT_ACCESS_SECRET as jwt.Secret,
       (err, payload) => {
-        if(err) reject(err);
+        console.log("Is my payload");
+        console.log(payload);
+        if (err) reject(err);
         resolve(payload as Token);
       }
-    )
-  })
-}
+    );
+  });
+};
 
 export const setTokenForCookies = async (
   req: Request,

@@ -6,6 +6,7 @@ import { Token, verifyToken } from "../shared/actions/token";
 import jwt from "jsonwebtoken";
 import { AppError } from "../cores/errors";
 import supabase from "../shared/supabase";
+import { CoreUser } from "@/shared/types";
 
 export async function protect(req: Request, res: Response, next: NextFunction) {
   let token: string;
@@ -23,24 +24,30 @@ export async function protect(req: Request, res: Response, next: NextFunction) {
   }
 
   try {
-    const payload: Token | jwt.JsonWebTokenError = await verifyToken(token);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if(payload instanceof jwt.JsonWebTokenError) {
-      next(AppError.unauthorized("Authentication token is missing."));
-    }
 
-    console.log("Payload data");
-    console.log(payload);
+    console.log("Fucking user in middleware");
+    console.log(user);
 
-    const { data: { user }, error: fetchError } = await supabase.auth.getUser()
+    const { data: userGetter, error: fetchError } = 
+      await supabase
+      .from("user_profiles")
+      .select()
+      .eq("auth_id", user.id)
+      .single();
     
-    if(fetchError || !user) {
+    if(fetchError || !userGetter) {
       return next(AppError.unauthorized("User not found"));
     }
-    
+      
+
     // find user by id ==> get core user type 
     // console.log()
-    // req.user = user;
+    req.user = userGetter as CoreUser;
+    next();
     // const user = await supabas
   } catch (error) {
     throw AppError.badRequest("Bad request Loi oi")
