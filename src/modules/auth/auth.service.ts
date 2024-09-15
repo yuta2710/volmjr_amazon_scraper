@@ -3,6 +3,7 @@ import { NextFunction, Request, Response } from "express";
 import { Session as AuthSession, SupabaseClient } from "@supabase/supabase-js";
 import supabase from "../../shared/supabase";
 import { AppError } from "../../cores/errors";
+import colors from "colors";
 
 // Promise<{ accessToken: string; refreshToken: string }>
 export default class AuthService {
@@ -25,6 +26,9 @@ export default class AuthService {
 
   async signIn(req: Request, res: Response, next: NextFunction) {
     const { email, password } = req.body as AuthenticationRequest;
+
+    await this.db.auth.signOut();
+
     const { data: signedInData, error } =
       await supabase.auth.signInWithPassword({
         email,
@@ -56,8 +60,11 @@ export default class AuthService {
         .insert(sampleUserProfileDataForInsert)
 
       if(insertError){
-        throw AppError.badRequest("Cannot insert data")
+        console.error(colors.red("Insert Error:"), insertError);
+        return next(AppError.badRequest(insertError.details))
       }
+
+      res.clearCookie("ACCESS_TOKEN");
 
       res
         .status(200)
@@ -75,10 +82,7 @@ export default class AuthService {
           refreshToken: signedInData.session.refresh_token,
         });
     } else {
-      res.status(403).json({
-        success: false,
-        message: "Login failed",
-      });
+      return next(AppError.badRequest("Invalid email or password"));
     }
   }
 
@@ -90,9 +94,6 @@ export default class AuthService {
     });
   }
 }
-
-
-
 
     // const payload: Token | jwt.JsonWebTokenError = await verifyToken(token);
 

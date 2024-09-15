@@ -96,4 +96,10 @@ The payload is essential because it carries the information required to identify
 
 By extracting the payload from the JWT, you can perform actions like verifying the user's identity, checking their roles/permissions, and ensuring that the token hasn't expired—all of which are vital for securing your application's routes and resources.
 
+## Protected Route.
+
+## SMS OTP 
+
+## Email Template
+
 ## Seeder/dropper bash script 

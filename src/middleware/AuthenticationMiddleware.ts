@@ -9,16 +9,10 @@ import supabase from "../shared/supabase";
 import { CoreUser } from "@/shared/types";
 
 export async function protect(req: Request, res: Response, next: NextFunction) {
-  let token: string;
+  let token: string | undefined;
   // Get token 
-  if(req.headers.authorization || req.headers.authorization.split("Bearer ")) {
-    token = req.headers.authorization.split("Bearer ")[1].trim();
-    console.log(`Token header authorization ${token}`);
-  }else {
-    token = req.cookies.accessToken
-    console.log(`Token from cookie ${token}`);
-  }
-
+  token = getTokenFromHeader(req) || getTokenFromCookies(req);
+  
   if(!token){
     return next(AppError.unauthorized("Authentication token is missing"));
   }
@@ -28,29 +22,36 @@ export async function protect(req: Request, res: Response, next: NextFunction) {
       data: { user },
     } = await supabase.auth.getUser();
 
-
-    console.log("Fucking user in middleware");
-    console.log(user);
-
-    const { data: userGetter, error: fetchError } = 
+    const { data: queryResult, error: fetchError } = 
       await supabase
       .from("user_profiles")
       .select()
       .eq("auth_id", user.id)
       .single();
+
     
-    if(fetchError || !userGetter) {
+    if(fetchError || !queryResult) {
       return next(AppError.unauthorized("User not found"));
     }
-      
 
-    // find user by id ==> get core user type 
-    // console.log()
-    req.user = userGetter as CoreUser;
+    req.user = queryResult as CoreUser;
     next();
     // const user = await supabas
   } catch (error) {
     throw AppError.badRequest("Bad request Loi oi")
   }
   
+}
+
+function getTokenFromHeader(req: Request): string | undefined {
+  const authHeader = req.headers.authorization;
+  if(authHeader || authHeader.split("Bearer ")) {
+    return req.headers.authorization.split("Bearer ")[1].trim();
+  }
+
+  return undefined;
+}
+
+function getTokenFromCookies(req: Request): string | undefined {
+  return req.cookies.accessToken;
 }

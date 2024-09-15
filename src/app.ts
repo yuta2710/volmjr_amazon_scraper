@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import Redis from "ioredis";
 import BaseController from './shared/controller';
 import { protect } from './middleware/AuthenticationMiddleware';
+import { ErrorMiddleware } from './middleware/ErrorMiddleware';
 
 export default class App {
   public express: Application;
@@ -19,6 +20,7 @@ export default class App {
     this.initRedisConnection();
     this.initMiddleware();
     this.initControllers(controllers);
+    this.initErrorHandler();
   }
 
   private initMiddleware(): void {
@@ -39,7 +41,7 @@ export default class App {
   }
 
   private initErrorHandler(): void {
-
+    this.express.use(ErrorMiddleware.handleError)
   }
 
   private initControllers(controllers: BaseController[]): void {

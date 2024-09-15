@@ -7,6 +7,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Create the category table 
+CREATE TABLE category (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  lft INTEGER NOT NULL,
+  rgt INTEGER NOT NULL,
+  parent_id INTEGER REFERENCES category(id) ON DELETE SET NULL,
+  UNIQUE (name, lft, rgt)
+);
+
+
 -- SQL function to recursively fetch categories
 CREATE OR REPLACE FUNCTION get_recursive_categories(category_id INT)
 RETURNS TABLE(id INT, name TEXT, parent_id INT, lft INT, rgt INT) AS $$
@@ -24,17 +35,6 @@ WITH RECURSIVE category_tree AS (
 
 SELECT * FROM category_tree;
 $$ LANGUAGE sql;
-
--- Create the category table 
-CREATE TABLE category (
-  id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  lft INTEGER NOT NULL,
-  rgt INTEGER NOT NULL,
-  parent_id INTEGER REFERENCES category(id) ON DELETE SET NULL,
-  UNIQUE (name, lft, rgt)
-);
-
 
 -- Create the base_product table with constraints on JSONB fields
 CREATE TABLE base_products (
@@ -204,7 +204,7 @@ CREATE TYPE user_role AS ENUM ('admin', 'user');
 CREATE TABLE user_profiles (
     id SERIAL PRIMARY KEY,
     auth_id UUID REFERENCES auth.users(id),  -- Auto-incrementing ID
-    email TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
     first_name TEXT,  -- Optional first name
     last_name TEXT,  -- Optional last name
     role user_role NOT NULL DEFAULT 'user',  -- User role with a default value of 'user'
