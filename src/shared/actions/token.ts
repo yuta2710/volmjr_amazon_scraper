@@ -45,3 +45,9 @@ export const setTokenForCookies = async (
     console.error("Error set token")
   }
 }
+
+export const clearCookies = async (
+  res: Response
+): Promise<void> => {
+  res.clearCookie("ACCESS_TOKEN");
+}

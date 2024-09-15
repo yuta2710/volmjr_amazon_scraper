@@ -1,9 +1,14 @@
-import { AuthenticationRequest, CoreUser, UserProfileInsert } from "@/shared/types";
+import {
+  AuthenticationRequest,
+  CoreUser,
+  UserProfileInsert,
+} from "../../shared/types";
 import { NextFunction, Request, Response } from "express";
 import { Session as AuthSession, SupabaseClient } from "@supabase/supabase-js";
 import supabase from "../../shared/supabase";
 import { AppError } from "../../cores/errors";
 import colors from "colors";
+import { clearCookies } from "../../shared/actions/token";
 
 // Promise<{ accessToken: string; refreshToken: string }>
 export default class AuthService {
@@ -27,16 +32,13 @@ export default class AuthService {
   async signIn(req: Request, res: Response, next: NextFunction) {
     const { email, password } = req.body as AuthenticationRequest;
 
-    await this.db.auth.signOut();
+    await this.signOut();
 
     const { data: signedInData, error } =
       await supabase.auth.signInWithPassword({
         email,
         password,
       });
-
-    console.log("Sign In Data");
-    console.log(signedInData);
 
     if (signedInData && signedInData.session) {
       console.log("\nSession Data");
@@ -45,28 +47,41 @@ export default class AuthService {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      console.log("Retrieve user data");
-      console.log(user.identities[0]["id"]);
 
-      const sampleUserProfileDataForInsert: UserProfileInsert = {
-        auth_id: user.identities[0]["id"],
-        email: user.email,
-      } 
+      const authId = user.identities[0]["id"];
 
-      // Create user profiles 
-      const { error: insertError } = 
-        await supabase
+      // Check if user profile already exist
+      const { data: existProfile, error: profileFetchError } = await this.db
         .from("user_profiles")
-        .insert(sampleUserProfileDataForInsert)
+        .select("*")
+        .eq("auth_id", authId)
+        .single();
 
-      if(insertError){
-        console.error(colors.red("Insert Error:"), insertError);
-        return next(AppError.badRequest(insertError.details))
+      if (profileFetchError && profileFetchError.code !== "PGRST116") {
+        // Error occurred other than "no rows returned" (code PGRST116 means no data found)
+        return next(AppError.internalServer("Failed to check user profile"));
       }
 
-      res.clearCookie("ACCESS_TOKEN");
+      if (!existProfile) {
+        const sampleUserProfileDataForInsert: UserProfileInsert = {
+          auth_id: authId,
+          email: user.email,
+        };
 
-      res
+        // Create user profiles
+        const { error: insertError } = await this.db
+          .from("user_profiles")
+          .insert(sampleUserProfileDataForInsert);
+
+        if (insertError) {
+          console.error(colors.red("Insert Error:"), insertError);
+          return next(AppError.badRequest(insertError.details));
+        }
+      }
+
+      await clearCookies(res);
+
+      return res
         .status(200)
         .cookie("ACCESS_TOKEN", signedInData.session.access_token, {
           expires: new Date(
@@ -93,13 +108,17 @@ export default class AuthService {
       data: user,
     });
   }
+
+  async signOut(): Promise<void> {
+    await this.db.auth.signOut();
+  }
 }
 
-    // const payload: Token | jwt.JsonWebTokenError = await verifyToken(token);
+// const payload: Token | jwt.JsonWebTokenError = await verifyToken(token);
 
-    // if(payload instanceof jwt.JsonWebTokenError) {
-    //   next(AppError.unauthorized("Authentication token is missing."));
-    // }
+// if(payload instanceof jwt.JsonWebTokenError) {
+//   next(AppError.unauthorized("Authentication token is missing."));
+// }
 
-    // console.log("Payload data");
-    // console.log(payload);
+// console.log("Payload data");
+// console.log(payload);
