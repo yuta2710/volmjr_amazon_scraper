@@ -1,10 +1,14 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import {
+  createClient,
+  PostgrestError,
+  SupabaseClient,
+} from "@supabase/supabase-js";
 import { Database } from "../../shared/types/database.types";
 import { BaseProductInsert } from "../../shared/types";
 import { BaseProduct } from "../../shared/types";
 
 export default class AmazonBaseProductRepository {
-  private supabase: SupabaseClient<Database>;
+  private db: SupabaseClient<Database>;
 
   constructor(
     supabaseUrl: string = process.env.SUPABASE_URL,
@@ -14,45 +18,58 @@ export default class AmazonBaseProductRepository {
       throw new Error("Supabase URL and Anon Key must be provided");
     }
 
-    this.supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+    this.db = createClient<Database>(supabaseUrl, supabaseAnonKey);
   }
 
   async insertProduct(productInsertData: BaseProductInsert) {
     try {
-      const { error: fetchError } = await this.supabase
+      const { error: fetchError } = await this.db
         .from("base_products")
         .select()
         .eq("asin", productInsertData.asin)
         .single();
 
-      if (fetchError && fetchError.code !== 'PGRST116') { // 'PGRST116' is the code for 'No rows found'
-        console.error('Error checking for existing product:', fetchError.message);
+      if (fetchError && fetchError.code !== "PGRST116") {
+        // 'PGRST116' is the code for 'No rows found'
+        console.error(
+          "Error checking for existing product:",
+          fetchError.message,
+        );
         return null;
-      }
-      else{
-        const { data, error } = await this.supabase
-        .from("base_products")
-        .upsert([productInsertData as BaseProductInsert], {onConflict: "asin"})
-        .select();
-
-      if (error) {
-        console.error("Error inserting product:", error.message);
       } else {
-        // console.info("Product inserted successfully:", data);
-        return data[0].id;
-      }
+        const { data, error } = await this.db
+          .from("base_products")
+          .upsert([productInsertData as BaseProductInsert], {
+            onConflict: "asin",
+          })
+          .select();
+
+        if (error) {
+          console.error("Error inserting product:", error.message);
+        } else {
+          // console.info("Product inserted successfully:", data);
+          return data[0].id;
+        }
       }
     } catch (error) {
-      console.error('Unexpected error during product insert:', error.message);
+      console.error("Unexpected error during product insert:", error.message);
       return null;
     }
   }
 
-  async getProductById(productId: number) {
-    const { data, error } = await this.supabase
+  async getAllProductsByUserId(userId: number) {
+    const { data: products, error: fetchError } = await this.db
       .from("base_products")
       .select("*")
-      .eq("id", productId) 
+
+    return { data: products, error: fetchError };
+  }
+
+  async getProductById(productId: number) {
+    const { data, error } = await this.db
+      .from("base_products")
+      .select("*")
+      .eq("id", productId)
       .single();
 
     if (error) {

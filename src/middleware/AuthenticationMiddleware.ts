@@ -9,7 +9,7 @@ export async function protect(req: Request, res: Response, next: NextFunction) {
   token = getTokenFromHeader(req) || getTokenFromCookies(req);
 
   if (!token) {
-    const error = AppError.unauthorized("Authentication token is missing");
+    const error = AppError.unauthorized("Unauthorized to access this route due to missing token");
     console.error("Formatted Stack Trace:", error.formattedStack);  // You can log the formatted stack trace
     return next(error);
   }
@@ -31,7 +31,6 @@ export async function protect(req: Request, res: Response, next: NextFunction) {
 
     req.user = queryResult as CoreUser;
     next();
-    // const user = await supabas
   } catch (error) {
     return next(AppError.badRequest("Bad request Loi oi"));
   }
@@ -39,7 +38,6 @@ export async function protect(req: Request, res: Response, next: NextFunction) {
 
 function getTokenFromHeader(req: Request): string | undefined {
   const authHeader = req.headers.authorization;
-  console.log(`Auth header data = ${authHeader}`)
   if (authHeader !== undefined && authHeader.startsWith("Bearer ")) {
     return authHeader.split("Bearer ")[1].trim();
   }

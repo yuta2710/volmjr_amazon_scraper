@@ -141,6 +141,12 @@ CREATE TABLE base_products (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()  
 );
 
+CREATE TABLE product_categories(
+  product_id INTEGER REFERENCES base_products(id) ON DELETE CASCADE,
+  category_id INTEGER REFERENCES category(id) ON DELETE CASCADE,
+  PRIMARY KEY (product_id, category_id)  
+);
+
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -154,6 +160,21 @@ BEFORE UPDATE ON base_products
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TYPE user_role AS ENUM ('admin', 'user');
+
+-- Create User table
+CREATE TABLE user_profiles (
+    id SERIAL PRIMARY KEY,
+    auth_id UUID REFERENCES auth.users(id),  -- Auto-incrementing ID
+    email TEXT NOT NULL UNIQUE,
+    first_name TEXT,  -- Optional first name
+    last_name TEXT,  -- Optional last name
+    role user_role NOT NULL DEFAULT 'user',  -- User role with a default value of 'user'
+    -- workspaces INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,  -- Array of workspaces (string array)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),  -- Timestamp for user creation
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()  -- Timestamp for last update
+);
+
 
 -- Create the comment_item table
 CREATE TABLE comments (
@@ -166,7 +187,7 @@ CREATE TABLE comments (
     
     -- Product JSONB with constraints
     product_id INTEGER REFERENCES base_products(id) ON DELETE CASCADE,
-    
+    user_id INTEGER REFERENCES user_profiles(id) ON DELETE CASCADE,
     -- Helpful count, rating, verified purchase, location, and URL fields
     helpful_count TEXT NOT NULL,
     rating TEXT NOT NULL,
@@ -198,21 +219,6 @@ CREATE TABLE comments (
     )
 );
 
-CREATE TYPE user_role AS ENUM ('admin', 'user');
-
--- Create User table
-CREATE TABLE user_profiles (
-    id SERIAL PRIMARY KEY,
-    auth_id UUID REFERENCES auth.users(id),  -- Auto-incrementing ID
-    email TEXT NOT NULL UNIQUE,
-    first_name TEXT,  -- Optional first name
-    last_name TEXT,  -- Optional last name
-    role user_role NOT NULL DEFAULT 'user',  -- User role with a default value of 'user'
-    -- workspaces INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,  -- Array of workspaces (string array)
-    products INTEGER REFERENCES base_products(id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),  -- Timestamp for user creation
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()  -- Timestamp for last update
-);
 
 -- -- Trigger to automatically update 'updated_at' column on user update
 CREATE OR REPLACE FUNCTION update_users_updated_at_column()
@@ -230,8 +236,8 @@ EXECUTE FUNCTION update_users_updated_at_column();
 
 -- Create a junction table to represent the many-to-many relationship
 CREATE TABLE user_products (
-    user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    product_id INT REFERENCES products(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES user_profiles(id) ON DELETE CASCADE,
+    product_id INTEGER REFERENCES base_products(id) ON DELETE CASCADE,
     PRIMARY KEY (user_id, product_id)
 );
 

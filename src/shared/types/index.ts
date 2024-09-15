@@ -33,6 +33,7 @@ export type BaseProduct = {
       percentage?: string | ""; // "40%"
     };
   };
+  // price?: Record<string, any>;
   category?: number;
   numberOfComments?: number;
   averageRating?: number;
@@ -52,6 +53,7 @@ export type BaseProduct = {
   businessTargetForCollecting?: string;
   createdAt?: Date;
   updatedAt?: Date; 
+  userId?: number; // foreign key
 } | null;
 
 

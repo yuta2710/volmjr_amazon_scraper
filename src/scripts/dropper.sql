@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS product_categories CASCADE;
+
 -- Drop junction table for the many-to-many relationship between users and products
 DROP TABLE IF EXISTS user_products CASCADE;
 
