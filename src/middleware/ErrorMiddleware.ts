@@ -11,7 +11,7 @@ export class ErrorMiddleware {
     next: NextFunction
   ): void => {
     if (error instanceof AppError) {
-      const { name, message, stack, validationErrors } = error;
+      const { name, message, formattedStack, validationErrors } = error;
       const statusCode = error.statusCode || HttpCode.INTERNAL_SERVER_ERROR;
 
       res.statusCode = statusCode;
@@ -20,7 +20,7 @@ export class ErrorMiddleware {
         name,
         message,
         validationErrors,
-        stack
+        stack: formattedStack
       })
     } else {
       const name = "InternalServerError";

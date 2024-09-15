@@ -14,6 +14,7 @@ export class AppError extends Error {
   public readonly statusCode: StatusCodes;
   public readonly isOperational: boolean = true;
   public readonly validationErrors?: ValidationType[];
+  public readonly formattedStack?: string;
 
   constructor(args: AppErrorArgs) {
     const {message, name, statusCode, isOperational, validationErrors } = args;
@@ -26,7 +27,7 @@ export class AppError extends Error {
 		if (isOperational !== undefined) this.isOperational = isOperational;
 
     this.validationErrors = validationErrors;
-    Error.captureStackTrace(this);
+    this.formattedStack = this.stack ? this.formatStack(this.stack) : 'No stack trace available';
   }
 
   static badRequest(message: string, validationErrors?: ValidationType[]): AppError {
@@ -48,4 +49,22 @@ export class AppError extends Error {
 	static internalServer(message: string): AppError {
 		return new AppError({ name: 'InternalServerError', message, statusCode: StatusCodes.INTERNAL_SERVER_ERROR });
 	}
+
+  private formatStack(stackTrace: string | undefined): string {
+    if (!stackTrace) return "";
+
+    const stackArray = stackTrace.split('\n');
+    let filteredStack = stackArray.filter(line => {
+      // Exclude Node.js internals and irrelevant stack lines
+      return !line.includes('node_modules') && !line.includes('internal');
+    });
+
+    filteredStack = filteredStack.map(stack => stack.trim());
+
+    console.log("Data of filtered stack");
+    console.log(filteredStack)
+
+    // Return formatted, cleaned-up stack trace
+    return filteredStack.slice(1, 5).join(" "); // Limit to 5 lines for brevity
+  }
 }

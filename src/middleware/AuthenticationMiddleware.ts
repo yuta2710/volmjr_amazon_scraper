@@ -1,20 +1,17 @@
 import { Request, Response, NextFunction } from "express";
-import { z, ZodError } from "zod";
-
-import { StatusCodes } from "http-status-codes";
-import { Token, verifyToken } from "../shared/actions/token";
-import jwt from "jsonwebtoken";
 import { AppError } from "../cores/errors";
 import supabase from "../shared/supabase";
 import { CoreUser } from "@/shared/types";
 
 export async function protect(req: Request, res: Response, next: NextFunction) {
   let token: string | undefined;
-  // Get token 
+  // Get token
   token = getTokenFromHeader(req) || getTokenFromCookies(req);
-  
-  if(!token){
-    return next(AppError.unauthorized("Authentication token is missing"));
+
+  if (!token) {
+    const error = AppError.unauthorized("Authentication token is missing");
+    console.error("Formatted Stack Trace:", error.formattedStack);  // You can log the formatted stack trace
+    return next(error);
   }
 
   try {
@@ -22,15 +19,13 @@ export async function protect(req: Request, res: Response, next: NextFunction) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const { data: queryResult, error: fetchError } = 
-      await supabase
+    const { data: queryResult, error: fetchError } = await supabase
       .from("user_profiles")
       .select()
       .eq("auth_id", user.id)
       .single();
 
-    
-    if(fetchError || !queryResult) {
+    if (fetchError || !queryResult) {
       return next(AppError.unauthorized("User not found"));
     }
 
@@ -38,15 +33,15 @@ export async function protect(req: Request, res: Response, next: NextFunction) {
     next();
     // const user = await supabas
   } catch (error) {
-    throw AppError.badRequest("Bad request Loi oi")
+    return next(AppError.badRequest("Bad request Loi oi"));
   }
-  
 }
 
 function getTokenFromHeader(req: Request): string | undefined {
   const authHeader = req.headers.authorization;
-  if(authHeader || authHeader.split("Bearer ")) {
-    return req.headers.authorization.split("Bearer ")[1].trim();
+  console.log(`Auth header data = ${authHeader}`)
+  if (authHeader !== undefined && authHeader.startsWith("Bearer ")) {
+    return authHeader.split("Bearer ")[1].trim();
   }
 
   return undefined;
