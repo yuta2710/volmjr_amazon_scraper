@@ -1,15 +1,11 @@
 import colors from "colors";
 // import { supabase } from "../../../cores/db/supabase";
 import { NextFunction, Request, Response } from "express";
-
-import { createClient } from "@supabase/supabase-js";
-import { Database } from "../../shared/types/database.types";
 import { scrapeAmazonProduct } from "../../shared/actions/scraper";
 import {
   AmazonScrapedResponse,
   BaseProduct,
   BaseProductDto,
-  CategoryProps,
   CommentItem,
   ProductCategoriesInsert,
   UserProductInsert,
@@ -23,6 +19,7 @@ import { CONJUNCTION_TABLE, supabase } from "../../shared/supabase";
 import { AppError } from "../../cores/errors";
 import { isValidIdParams } from "../../shared/actions/checker";
 import { jsonCamelCase } from "../../shared/actions/to";
+import { renderSuccessComponent } from "../../cores/success";
 
 type BaseProductInsert = TablesInsert<"base_products">;
 
@@ -59,7 +56,6 @@ export default class BaseProductService {
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
-    // return new Promise();
     const { url } = req.body as AmazonScrapingProductRequest;
     const scrapedDataResponse: AmazonScrapedResponse | null =
       await scrapeAmazonProduct(url as string);
@@ -142,12 +138,12 @@ export default class BaseProductService {
           updated_at: scrapedProductFromBrowser.updatedAt.toISOString(),
         };
 
-        // Inserted a product
+        // Inserted a product --> get new product ID
         newProductId = await this.productRepository.insertProduct(
           productInsertData as BaseProductInsert,
         );
 
-        // Inserted the bulk of comments
+        // Inserted the bulk of comments --> get the new comments
         /**
          * TODO: Check condition exist of comments
          */
@@ -163,12 +159,6 @@ export default class BaseProductService {
       }
     }
 
-    if (scrapedDataResponse != null) {
-      console.log("Response is not null");
-    } else {
-      console.error("Product be null");
-    }
-
     // insertedCategoryId, newProductId,
     const sampleUP: UserProductInsert = {
       user_id: req.user.id,
@@ -177,13 +167,14 @@ export default class BaseProductService {
 
     const samplePC: ProductCategoriesInsert = {
       product_id: newProductId,
-      category_id: insertedCategoryId
-    }
+      category_id: insertedCategoryId,
+    };
 
     const { error: upConjunctorError } =
       await this.userProdTable.insert(sampleUP);
 
-    const { error: pcConjunctorError } = await this.prodCategoriesTable.insert(samplePC);
+    const { error: pcConjunctorError } =
+      await this.prodCategoriesTable.insert(samplePC);
 
     if (upConjunctorError) {
       console.error(
@@ -193,44 +184,54 @@ export default class BaseProductService {
       return next(AppError.badRequest("Unable to insert UP conjunction table"));
     }
 
-    if(pcConjunctorError) {
+    if (pcConjunctorError) {
       console.error(
         colors.red("Conjunction error response: "),
         pcConjunctorError,
       );
       return next(AppError.badRequest("Unable to insert PC conjunction table"));
     }
-    
 
-    res.status(200).json({
-      success: true,
-      message: "Scraped data successfully",
-      counting: {
-        product: scrapedDataResponse.product.asin,
-        numberOfComments: scrapedDataResponse.comments.length,
-        category: scrapedDataResponse.category.name,
-      },
-    });
+    renderSuccessComponent(res, scrapedDataResponse);
+
+    // res.status(200).json({
+    //   success: true,
+    //   message: "Scraped data successfully",
+    //   scraper: {
+    //     product: {
+    //       data: scrapedDataResponse.product.asin,
+    //     },
+    //     comments: {
+    //       data: {
+    //         numberOfComments: scrapedDataResponse.comments.length,
+    //       }
+    //     },
+    //     category: {
+    //       data: scrapedDataResponse.category.name,
+    //     }
+    //   },
+    // });
+
   };
 
-  // getAllProducts = (): Promise<BaseProduct[]> {
-
-  // }
-
-  getProductByUserAndProductId = async (req: Request, res: Response, next: NextFunction) => {
+  getProductByUserAndProductId = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
     const userIdParams = req.params.userId;
     const productIdParams = req.params.productId;
-    // const { data: categories, error: fetchCategoriesError } = await supabase.rpc(
-    //   "get_recursive_categories",
-    //   {categoryId: productIdParams}
-    // )
-    let fetchProductData = await this.productRepository.getProductById(Number(productIdParams));
+    let fetchProductData = await this.productRepository.getProductById(
+      Number(productIdParams),
+    );
     fetchProductData = jsonCamelCase(fetchProductData);
-    const childrenCat: any = await this.categoryRepository.getChildrenOfCurrentCategory(fetchProductData.category as number);
 
-    // console.log(childrenCat);
+    const childrenCat: any =
+      await this.categoryRepository.getChildrenOfCurrentCategory(
+        fetchProductData.category as number,
+      );
 
-    const resultDto: BaseProductDto = {
+    let resultDto: BaseProductDto = {
       id: fetchProductData.id,
       asin: fetchProductData.asin,
       url: fetchProductData.url,
@@ -252,19 +253,15 @@ export default class BaseProductService {
       businessTargetForCollecting: fetchProductData.businessTargetForCollecting,
       createdAt: fetchProductData.createdAt,
       updatedAt: fetchProductData.updatedAt,
+    };
+
+    resultDto = {
+      ...resultDto,
       category: childrenCat,
-      userId: Number(userIdParams) // foreign key
-    }
-    
+      userId: Number(userIdParams),
+    };
 
-    console.log("DTO format result");
-    console.log(resultDto);
-    // console.log(fetchProductData.price.amount)
-
-    res.status(200).json({
-      success: true,
-      data: resultDto
-    })
+    renderSuccessComponent(res, resultDto);
   };
 
   getAllProductsByUserId = async (
@@ -273,19 +270,19 @@ export default class BaseProductService {
     next: NextFunction,
   ) => {
     const userIdParam = req.params.userId;
-    console.log(`User ID params: ${userIdParam}`);
     const checkedIdParam = isValidIdParams(userIdParam as string, req, next);
-    console.log(`Checker Id Params: ${checkedIdParam}`);
+    const queryResults = await this.productRepository.getAllProductsByUserId(
+      checkedIdParam as number,
+    );
 
-    const queryResults = await this.productRepository.getAllProductsByUserId(checkedIdParam as number);
-
-    console.log("\n\nQuery results data");
-    console.log(queryResults.data);
-    
-    queryResults.data ? res.status(200).json({
-      success: true,
-      data: queryResults.data,
-      count: queryResults.data.length
-    }) : next(AppError.badRequest("Bad request for query products"));
+    queryResults.data
+      ? renderSuccessComponent(res, queryResults.data)
+      : next(AppError.badRequest("Bad request for query products"));
   };
 }
+
+// if (scrapedDataResponse != null) {
+//   console.log("Response is not null");
+// } else {
+//   console.error("Product be null");
+// }
