@@ -20,6 +20,8 @@ import { AppError } from "../../cores/errors";
 import { isValidIdParams } from "../../shared/actions/checker";
 import { jsonCamelCase } from "../../shared/actions/to";
 import { renderSuccessComponent } from "../../cores/success";
+import { AmazonBotScraper } from "../../shared/actions/scraper.v2";
+import { Platforms } from "../../shared/constants";
 
 type BaseProductInsert = TablesInsert<"base_products">;
 
@@ -57,8 +59,11 @@ export default class BaseProductService {
     next: NextFunction,
   ): Promise<void> => {
     const { url } = req.body as AmazonScrapingProductRequest;
+    // const scrapedDataResponse: AmazonScrapedResponse | null =
+    // await scrapeAmazonProduct(url as string);
+    const bot = new AmazonBotScraper(url, Platforms.AMAZON);
     const scrapedDataResponse: AmazonScrapedResponse | null =
-      await scrapeAmazonProduct(url as string);
+    await bot.scraperData();
 
     let newProductId: number;
     let insertedCategoryId: number | null = null;
@@ -176,41 +181,23 @@ export default class BaseProductService {
     const { error: pcConjunctorError } =
       await this.prodCategoriesTable.insert(samplePC);
 
-    if (upConjunctorError) {
-      console.error(
-        colors.red("Conjunction error response: "),
-        upConjunctorError,
-      );
-      return next(AppError.badRequest("Unable to insert UP conjunction table"));
-    }
+    // if (upConjunctorError) {
+    //   console.error(
+    //     colors.red("Conjunction error response: "),
+    //     upConjunctorError,
+    //   );
+    //   return next(AppError.badRequest("Unable to insert UP conjunction table"));
+    // }
 
-    if (pcConjunctorError) {
-      console.error(
-        colors.red("Conjunction error response: "),
-        pcConjunctorError,
-      );
-      return next(AppError.badRequest("Unable to insert PC conjunction table"));
-    }
+    // if (pcConjunctorError) {
+    //   console.error(
+    //     colors.red("Conjunction error response: "),
+    //     pcConjunctorError,
+    //   );
+    //   return next(AppError.badRequest("Unable to insert PC conjunction table"));
+    // }
 
     renderSuccessComponent(res, scrapedDataResponse);
-
-    // res.status(200).json({
-    //   success: true,
-    //   message: "Scraped data successfully",
-    //   scraper: {
-    //     product: {
-    //       data: scrapedDataResponse.product.asin,
-    //     },
-    //     comments: {
-    //       data: {
-    //         numberOfComments: scrapedDataResponse.comments.length,
-    //       }
-    //     },
-    //     category: {
-    //       data: scrapedDataResponse.category.name,
-    //     }
-    //   },
-    // });
 
   };
 

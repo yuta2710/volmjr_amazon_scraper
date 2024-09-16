@@ -18,6 +18,8 @@ export function jsonCamelCase(obj: any): any {
 }
 
 
+
+
 // const translationClient = new TranslationServiceClient();
 
 // async function translateText() {

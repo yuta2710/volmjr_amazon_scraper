@@ -30,6 +30,7 @@ import { CategoryNode } from "../../modules/category/category.model";
 import colors from "colors";
 import { retrieveProductPriceHistoryGroup } from "./camel+browser";
 import { extractKeywordsTFIDF } from "./test";
+import { NormalCaptchaSolver } from "./captcha";
 
 const execPromise = util.promisify(exec);
 
@@ -46,12 +47,13 @@ export async function scrapeAmazonProduct(
   // const browser = await puppeteer.launch({ headless: true });
   const browser = await puppeteer.launch({
     // headless: Boolean(process.env.HEADLESS_MODE),
-    headless: true,
+    headless: false,
   });
   const page = await browser.newPage();
   await page.goto(url, { waitUntil: "load" });
 
-  await checkAndSolveNormalCaptcha(page);
+  // await checkAndSolveNormalCaptcha(page);
+  await new NormalCaptchaSolver().execute(page);
 
   // Attempt sign-in with retries
   let signInAttempts = 3;
@@ -115,87 +117,9 @@ export async function scrapeAmazonProduct(
     scrapedProduct.price.priceHistory =
       priceHistoryGroup as CamelPriceComparison;
   }
-  // const actualCategoryUrl = await page.$eval(
-  //   "#wayfinding-breadcrumbs_feature_div ul li:last-child span a",
-  //   (el) => el.getAttribute("href"),
-  // );
-  // console.log("Actual browser ", actualCategoryUrl);
-  // await page.goto(
-  //   `https://${String(process.env.AMAZON_DOMAIN)}${actualCategoryUrl}`,
-  //   { waitUntil: "load" },
-  // );
-
-  // const bestSellerUrl = await page.$eval(
-  //   "#s-result-sort-select option:nth-child(5)",
-  //   (el) => el.getAttribute("data-url"),
-  // );
-  // console.log(`Link of bestSellerUrl`);
-  // console.log(bestSellerUrl);
-
-  // await page.goto(
-  //   `https://${String(process.env.AMAZON_DOMAIN)}${bestSellerUrl}`,
-  //   { waitUntil: "load" },
-  // );
-
-  // const listOfCompetitorProductsInBestSellerPage: any = await page.$$(
-  //   ".sg-col-4-of-24.sg-col-4-of-12.s-result-item.s-asin.sg-col-4-of-16.sg-col.s-widget-spacing-small.sg-col-4-of-20.gsx-ies-anchor",
-  //   // el => el.textContent.trim()
-  // );
-
-  // console.log(
-  //   "listOfCompetitorProductsInBestSellerPage Content Best Seller Product",
-  // );
-  // console.log(listOfCompetitorProductsInBestSellerPage.length);
-
-  // for (let i = 0; i < listOfCompetitorProductsInBestSellerPage.length; i++) {
-  //   try {
-  //     let formattedHref: string = "";
-  //     const rawHref = await listOfCompetitorProductsInBestSellerPage[i].$eval(
-  //       ".a-link-normal.s-underline-text.s-underline-link-text.s-link-style.a-text-normal",
-  //       (el: any) => el.getAttribute("href"),
-  //     );
-  //     if (rawHref) {
-  //       formattedHref = `https://${String(process.env.AMAZON_DOMAIN)}${rawHref}`;
-  //       await page.goto(formattedHref, { waitUntil: "load" });
-
-  //       await page.waitForSelector("table.a-normal.a-spacing-micro");
-
-  //       const html = await page.$eval("table.a-normal.a-spacing-micro", (el) =>
-  //         el.textContent.trim(),
-  //       );
-  //       console.log("Table nam thai");
-  //       console.log(html);
-
-  //       const productDetailsTableHtml = await page.$$("table.a-normal.a-spacing-micro tbody tr");
-
-  //       if(productDetailsTableHtml && productDetailsTableHtml.length > 0) {
-  //         console.log("productDetailsTableHtml")
-  //         console.log(productDetailsTableHtml.length)
-
-  //         const brandValue = await page.$eval("table.a-normal.a-spacing-micro tbody tr.a-spacing-small.po-brand td.a-span9", el => el.textContent.trim());
-  //         console.log(brandValue)
-  //         // const brand = productDetailsTableHtml.find(el => el.$eval(""))
-  //         await page.goBack({ waitUntil: "load" });
-  //       }
-  //     }
-  //   } catch (error) {
-  //     console.log(
-  //       colors.red(
-  //         "Error scraping product in this detail related product best seller page",
-  //       ),
-  //     );
-  //   }
-  // }
-
-  // await page.goBack({ waitUntil: "load" });
-  // await page.goBack({ waitUntil: "load" });
-
-  // await page.reload();
-
-  // Example product titles (from your screenshots)
-
-  // After format asin, title, price...., navigate to comment page
-  // Wait for the review button to appear and be clickable
+  
+  // Still fixing best seller
+  
   let reviewButton = null;
 
   try {
