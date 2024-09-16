@@ -14,15 +14,15 @@ export default class AmazonBaseProductController implements BaseController {
 
   private initRoutes = (): void => {
     this.router.route(`${this.path}`).post(protect, this.createProduct);
-    this.router.route(`${this.path}/:id`).get(this.getProductById);
+    this.router.route(`${this.path}/:userId`).get(protect, this.getAllProductsByUserId);
   };
 
-  private getProductById = async (
+  private getAllProductsByUserId = async (
     req: Request,
     res: Response,
     next: NextFunction,
   ) => {
-    return this.service.getProductById(req, res, next);
+  return this.service.getAllProductsByUserId(req, res, next);
   };
 
   private createProduct = async (

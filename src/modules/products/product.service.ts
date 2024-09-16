@@ -16,8 +16,9 @@ import { TablesInsert } from "../../shared/types/database.types";
 import AmazonBaseProductRepository from "./product.repository";
 import AmazonCategoryRepository from "../category/category.repository";
 import CommentRepository from "../comments/comment.repository";
-import {CONJUNCTION_TABLE, supabase} from "../../shared/supabase";
+import { CONJUNCTION_TABLE, supabase } from "../../shared/supabase";
 import { AppError } from "../../cores/errors";
+import { isValidIdParams } from "../../shared/actions/checker";
 
 type BaseProductInsert = TablesInsert<"base_products">;
 
@@ -166,13 +167,17 @@ export default class BaseProductService {
     // insertedCategoryId, newProductId,
     const sampleUP: UserProductInsert = {
       user_id: req.user.id,
-      product_id: newProductId
-    }  
+      product_id: newProductId,
+    };
 
-    const { error: conjunctorError } = await this.userProdTable.insert(sampleUP)
+    const { error: conjunctorError } =
+      await this.userProdTable.insert(sampleUP);
 
-    if(conjunctorError){
-      console.error(colors.red("Conjunction error response: "), conjunctorError);
+    if (conjunctorError) {
+      console.error(
+        colors.red("Conjunction error response: "),
+        conjunctorError,
+      );
       return next(AppError.badRequest("Unable to insert UP conjunction table"));
     }
 
@@ -199,5 +204,27 @@ export default class BaseProductService {
     } catch (error) {
       console.log(error);
     }
+  };
+
+  getAllProductsByUserId = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    const userIdParam = req.params.userId;
+    console.log(`User ID params: ${userIdParam}`);
+    const checkedIdParam = isValidIdParams(userIdParam as string, req, next);
+    console.log(`Checker Id Params: ${checkedIdParam}`);
+
+    const queryResults = await this.productRepository.getAllProductsByUserId(checkedIdParam as number);
+
+    console.log("\n\nQuery results data");
+    console.log(queryResults.data);
+    
+    queryResults.data ? res.status(200).json({
+      success: true,
+      data: queryResults.data,
+      count: queryResults.data.length
+    }) : next(AppError.badRequest("Bad request for query products"))
   };
 }

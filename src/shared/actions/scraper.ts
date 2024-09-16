@@ -225,7 +225,7 @@ export async function scrapeAmazonProduct(
             }); // Timeout after 10 seconds
 
             // Explicitly wait for an expected element on the comments page
-            await page.waitForSelector(".a-section.review", { timeout: 50000 });
+            await page.waitForSelector(".a-section.review", { timeout: 100000 });
 
             success = true; // If navigation and element detection succeed, break out of the loop
             console.log(colors.green("Success retry"));

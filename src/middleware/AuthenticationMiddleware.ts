@@ -17,7 +17,7 @@ export async function protect(req: Request, res: Response, next: NextFunction) {
   try {
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getUser(token);
 
     const { data: queryResult, error: fetchError } = await supabase
       .from("user_profiles")
