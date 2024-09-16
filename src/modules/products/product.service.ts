@@ -9,19 +9,22 @@ import {
   AmazonScrapedResponse,
   BaseProduct,
   CommentItem,
+  UserProductInsert,
 } from "../../shared/types";
-import {CategoryNode} from "../category/category.model";
+import { CategoryNode } from "../category/category.model";
 import { TablesInsert } from "../../shared/types/database.types";
 import AmazonBaseProductRepository from "./product.repository";
 import AmazonCategoryRepository from "../category/category.repository";
 import CommentRepository from "../comments/comment.repository";
+import {CONJUNCTION_TABLE, supabase} from "../../shared/supabase";
+import { AppError } from "../../cores/errors";
 
 type BaseProductInsert = TablesInsert<"base_products">;
 
-const supabase = createClient<Database>(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY,
-);
+// const supabase = createClient<Database>(
+//   process.env.SUPABASE_URL,
+//   process.env.SUPABASE_ANON_KEY,
+// );
 
 type AmazonScrapingProductRequest = {
   url: string;
@@ -40,8 +43,10 @@ export default class BaseProductService {
 
   private commentRepository = new CommentRepository(
     String(process.env.SUPABASE_URL),
-    String(process.env.SUPABASE_ANON_KEY)
-  )
+    String(process.env.SUPABASE_ANON_KEY),
+  );
+
+  private userProdTable = CONJUNCTION_TABLE("user_products");
 
   createProduct = async (
     req: Request,
@@ -59,9 +64,10 @@ export default class BaseProductService {
     if (scrapedDataResponse) {
       if (scrapedDataResponse.category) {
         try {
-          insertedCategoryId = await this.categoryRepository.saveCategoryHierarchy(
-            scrapedDataResponse.category as CategoryNode,
-          );
+          insertedCategoryId =
+            await this.categoryRepository.saveCategoryHierarchy(
+              scrapedDataResponse.category as CategoryNode,
+            );
         } catch (error) {
           console.log(error);
         }
@@ -80,7 +86,7 @@ export default class BaseProductService {
         if (insertedCategoryId) {
           scrapedProductFromBrowser.category = insertedCategoryId as number;
         }
-        
+
         const productInsertData: BaseProductInsert = {
           // Map and validate your scraped data to the expected structure
           asin: scrapedProductFromBrowser.asin,
@@ -143,25 +149,40 @@ export default class BaseProductService {
       if (scrapedDataResponse.comments.length > 0) {
         const scrapedCommentsFromBrowser =
           scrapedDataResponse.comments as CommentItem[];
-          
-        // Check bulk comment exists from database
-        await this.commentRepository.insertBulkCommentsToDb(scrapedCommentsFromBrowser, newProductId);
+
+        await this.commentRepository.insertBatch(
+          scrapedCommentsFromBrowser,
+          newProductId,
+        );
       }
     }
 
     if (scrapedDataResponse != null) {
-      console.log("Product nay ko null");
+      console.log("Response is not null");
     } else {
-      console.log("Product nay null");
+      console.error("Product be null");
     }
-    
+
+    // insertedCategoryId, newProductId,
+    const sampleUP: UserProductInsert = {
+      user_id: req.user.id,
+      product_id: newProductId
+    }  
+
+    const { error: conjunctorError } = await this.userProdTable.insert(sampleUP)
+
+    if(conjunctorError){
+      console.error(colors.red("Conjunction error response: "), conjunctorError);
+      return next(AppError.badRequest("Unable to insert UP conjunction table"));
+    }
+
     res.status(200).json({
       success: true,
       message: "Scraped data successfully",
       counting: {
         product: scrapedDataResponse.product.asin,
         numberOfComments: scrapedDataResponse.comments.length,
-        category: scrapedDataResponse.category.name
+        category: scrapedDataResponse.category.name,
       },
     });
   };

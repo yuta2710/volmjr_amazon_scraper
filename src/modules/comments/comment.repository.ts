@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import supabase from "../../shared/supabase";
+import {supabase} from "../../shared/supabase";
 import { BaseCommentInsert, CommentItem } from "../../shared/types";
 import { Database } from "@/shared/types/database.types";
 
@@ -19,7 +19,7 @@ export default class CommentRepository {
       supabaseAnonKey,
     );
   }
-  async insertBulkCommentsToDb(items: CommentItem[], productId: number) {
+  async insertBatch(items: CommentItem[], productId: number) {
     const { data: existingBulkCommentsFromDatabase, error: fetchError } =
       await this.commentRepository
         .from("comments")

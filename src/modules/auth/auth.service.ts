@@ -5,7 +5,7 @@ import {
 } from "../../shared/types";
 import { NextFunction, Request, Response } from "express";
 import { Session as AuthSession, SupabaseClient } from "@supabase/supabase-js";
-import supabase from "../../shared/supabase";
+import {supabase} from "../../shared/supabase";
 import { AppError } from "../../cores/errors";
 import colors from "colors";
 import { clearCookies } from "../../shared/actions/token";

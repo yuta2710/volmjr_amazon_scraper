@@ -137,6 +137,7 @@ export type Database = {
           sentiment: Json
           title: string
           url: string
+          user_id: number | null
           verified_purchase: boolean
         }
         Insert: {
@@ -151,6 +152,7 @@ export type Database = {
           sentiment: Json
           title: string
           url: string
+          user_id?: number | null
           verified_purchase: boolean
         }
         Update: {
@@ -165,6 +167,7 @@ export type Database = {
           sentiment?: Json
           title?: string
           url?: string
+          user_id?: number | null
           verified_purchase?: boolean
         }
         Relationships: [
@@ -173,6 +176,73 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "base_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_categories: {
+        Row: {
+          category_id: number
+          product_id: number
+        }
+        Insert: {
+          category_id: number
+          product_id: number
+        }
+        Update: {
+          category_id?: number
+          product_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "category"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_categories_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "base_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_products: {
+        Row: {
+          product_id: number
+          user_id: number
+        }
+        Insert: {
+          product_id: number
+          user_id: number
+        }
+        Update: {
+          product_id?: number
+          user_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "base_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_products_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -185,7 +255,6 @@ export type Database = {
           first_name: string | null
           id: number
           last_name: string | null
-          products: number | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
         }
@@ -196,7 +265,6 @@ export type Database = {
           first_name?: string | null
           id?: number
           last_name?: string | null
-          products?: number | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
@@ -207,7 +275,6 @@ export type Database = {
           first_name?: string | null
           id?: number
           last_name?: string | null
-          products?: number | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
@@ -219,13 +286,6 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "user_profiles_products_fkey"
-            columns: ["products"]
-            isOneToOne: false
-            referencedRelation: "base_products"
-            referencedColumns: ["id"]
-          },
         ]
       }
     }
@@ -233,6 +293,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_recursive_categories: {
+        Args: {
+          category_id: number
+        }
+        Returns: {
+          id: number
+          name: string
+          parent_id: number
+          lft: number
+          rgt: number
+        }[]
+      }
       validate_percentage: {
         Args: {
           percentage: string

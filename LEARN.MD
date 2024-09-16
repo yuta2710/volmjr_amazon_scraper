@@ -200,6 +200,10 @@ Summary of Results:
 - RIGHT JOIN: Returns all rows from the right table (Orders), with NULL for missing matches from the left table (Customers).
 - FULL OUTER JOIN: Returns all rows from both tables, with NULL for missing matches on either side.
 
+# SQL OPTIMIZATION
+- Use EXIST() instead of COUNT() queries
+- Create relationship before doing backend task.
+
 # Conclusion
 The payload is essential because it carries the information required to identify, authenticate, and authorize the user making the request. It also carries critical security information such as the token's expiration time, helping the backend determine if the token is still valid.
 

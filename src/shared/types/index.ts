@@ -7,6 +7,7 @@ export declare type BaseProductInsert = TablesInsert<"base_products">;
 export declare type BaseCommentInsert = TablesInsert<"comments">;
 export declare type BaseCategoryInsert = TablesInsert<"category">;
 export declare type UserProfileInsert = TablesInsert<"user_profiles">;
+export declare type UserProductInsert = TablesInsert<"user_products">;
 
 export type TypedSupabaseClient = SupabaseClient<Database>
 

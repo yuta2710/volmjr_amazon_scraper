@@ -1,4 +1,4 @@
-import supabase from "@/shared/supabase";
+import {supabase} from "@/shared/supabase";
 import { SupabaseClient } from "@supabase/supabase-js";
 
 type UserDbSchema = {

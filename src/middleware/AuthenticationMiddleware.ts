@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../cores/errors";
-import supabase from "../shared/supabase";
+import {supabase} from "../shared/supabase";
 import { CoreUser } from "@/shared/types";
 
 export async function protect(req: Request, res: Response, next: NextFunction) {

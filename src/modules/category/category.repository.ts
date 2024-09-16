@@ -1,7 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "../../shared/types/database.types";
 import { CategoryNode } from "./category.model";
-import supabase from "../../shared/supabase";
+import {supabase} from "../../shared/supabase";
 
 export default class AmazonCategoryRepository {
   private categoryRepository: SupabaseClient<Database>;
