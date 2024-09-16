@@ -204,6 +204,7 @@ Summary of Results:
 - Use EXIST() instead of COUNT() queries
 - Create relationship before doing backend task.
 
+
 # Conclusion
 The payload is essential because it carries the information required to identify, authenticate, and authorize the user making the request. It also carries critical security information such as the token's expiration time, helping the backend determine if the token is still valid.
 

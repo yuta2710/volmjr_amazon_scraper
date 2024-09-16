@@ -132,14 +132,14 @@ export const analyzeFrequencyKeywordOfComments = (
       allKeywords = allKeywords.concat(tokens);
     }
 
-    console.log(allKeywords);
+    // console.log(allKeywords);
 
     const keywordFrequencies = allKeywords.reduce((acc, word) => {
       acc[word] = (acc[word] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
-    console.log("Keyword frequencies:", keywordFrequencies);
+    // console.log("Keyword frequencies:", keywordFrequencies);
 
     return keywordFrequencies;
   }

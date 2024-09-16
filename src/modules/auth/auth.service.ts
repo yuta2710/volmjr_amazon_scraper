@@ -5,7 +5,7 @@ import {
 } from "../../shared/types";
 import { NextFunction, Request, Response } from "express";
 import { Session as AuthSession, SupabaseClient } from "@supabase/supabase-js";
-import {supabase} from "../../shared/supabase";
+import { supabase } from "../../shared/supabase";
 import { AppError } from "../../cores/errors";
 import colors from "colors";
 import { clearCookies } from "../../shared/actions/token";
@@ -44,11 +44,9 @@ export default class AuthService {
       console.log("\nSession Data");
       console.log(signedInData.session);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const userSessionData = signedInData.session.user;
 
-      const authId = user.identities[0]["id"];
+      const authId = userSessionData.identities[0]["id"];
 
       // Check if user profile already exist
       const { data: existProfile, error: profileFetchError } = await this.db
@@ -65,7 +63,7 @@ export default class AuthService {
       if (!existProfile) {
         const sampleUserProfileDataForInsert: UserProfileInsert = {
           auth_id: authId,
-          email: user.email,
+          email: userSessionData.email,
         };
 
         // Create user profiles

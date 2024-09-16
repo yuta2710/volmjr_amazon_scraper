@@ -1129,8 +1129,7 @@ const translateText = async (text: string) => {
 
     // Capture the output and trim the result
     const captureValue = stdout.trim();
-    console.log("Capture value: ", captureValue);
-
+    // console.log("Capture value: ", captureValue);
     // Update the description after the exec finishes
     text = captureValue;
     return text; // Return the updated description if needed
