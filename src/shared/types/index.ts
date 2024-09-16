@@ -8,6 +8,7 @@ export declare type BaseCommentInsert = TablesInsert<"comments">;
 export declare type BaseCategoryInsert = TablesInsert<"category">;
 export declare type UserProfileInsert = TablesInsert<"user_profiles">;
 export declare type UserProductInsert = TablesInsert<"user_products">;
+export declare type ProductCategoriesInsert = TablesInsert<"product_categories">;
 
 export type TypedSupabaseClient = SupabaseClient<Database>
 
@@ -57,6 +58,49 @@ export type BaseProduct = {
   userId?: number; // foreign key
 } | null;
 
+export type BaseProductDto = {
+  id?: number;
+  asin?: string;
+  url?: string;
+  image?: string;
+  title?: string;
+  price?: {
+    amount?: number | 0;
+    currency?: string | "$";
+    displayAmount?: string | "";
+    currentPrice?: number | 0;
+    originalPrice?: number | 0;
+    highestPrice?: number | 0;
+    lowestPrice?: number | 0;
+    averagePrice?: number | 0;
+    savings?: {
+      amount?: number | 0;
+      currency?: string | "";
+      displayAmount?: string | ""; // "$34.77 with 40%"
+      percentage?: string | ""; // "40%"
+    };
+  };
+  category?: CategoryProps[];
+  numberOfComments?: number;
+  averageRating?: number;
+  isOutOfStock?: boolean;
+  brand?: string;
+  retailer?: string | "Not show";
+  bestSellerRanks?: BestSellerRank[];
+  isAmazonChoice?: boolean;
+  isBestSeller?: boolean;
+  histogram?: { [key: string]: string };
+  deliveryLocation?: string;
+  salesVolumeLastMonth?: string | "Not show";
+  averageSentimentAnalysis?: {
+    score: number;
+    emotion: string;
+  };
+  businessTargetForCollecting?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  userId?: number; 
+} | null;
 
 export type BestSellerRank = {
   rank?: string;

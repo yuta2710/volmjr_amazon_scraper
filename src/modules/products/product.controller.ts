@@ -15,6 +15,7 @@ export default class AmazonBaseProductController implements BaseController {
   private initRoutes = (): void => {
     this.router.route(`${this.path}`).post(protect, this.createProduct);
     this.router.route(`${this.path}/:userId`).get(protect, this.getAllProductsByUserId);
+    this.router.route(`${this.path}/:userId/:productId`).get(protect, this.getProductByUserAndProductId);
   };
 
   private getAllProductsByUserId = async (
@@ -22,7 +23,15 @@ export default class AmazonBaseProductController implements BaseController {
     res: Response,
     next: NextFunction,
   ) => {
-  return this.service.getAllProductsByUserId(req, res, next);
+    return this.service.getAllProductsByUserId(req, res, next);
+  };
+
+  private getProductByUserAndProductId = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    return this.service.getProductByUserAndProductId(req, res, next);
   };
 
   private createProduct = async (

@@ -44,7 +44,8 @@ export default class AmazonBaseProductRepository {
             onConflict: "asin",
           })
           .select();
-
+        
+          
         if (error) {
           console.error("Error inserting product:", error.message);
         } else {
@@ -101,6 +102,6 @@ export default class AmazonBaseProductRepository {
       throw new Error(`Error fetching product: ${error.message}`);
     }
 
-    return data;
+    return data as BaseProduct;
   }
 }

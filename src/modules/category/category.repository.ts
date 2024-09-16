@@ -1,7 +1,8 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "../../shared/types/database.types";
 import { CategoryNode } from "./category.model";
-import {supabase} from "../../shared/supabase";
+import { supabase } from "../../shared/supabase";
+import { CategoryProps } from "@/shared/types";
 
 export default class AmazonCategoryRepository {
   private categoryRepository: SupabaseClient<Database>;
@@ -66,5 +67,16 @@ export default class AmazonCategoryRepository {
 
       return categoryId;
     }
+  }
+
+  async getChildrenOfCurrentCategory(
+    currentId: number,
+  ) {
+    const { data, error } = await this.categoryRepository.rpc(
+      "get_recursive_categories",
+      {category_id: currentId}
+    );
+
+    return !error && data;
   }
 }

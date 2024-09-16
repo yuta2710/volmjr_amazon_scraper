@@ -8,7 +8,10 @@ import { scrapeAmazonProduct } from "../../shared/actions/scraper";
 import {
   AmazonScrapedResponse,
   BaseProduct,
+  BaseProductDto,
+  CategoryProps,
   CommentItem,
+  ProductCategoriesInsert,
   UserProductInsert,
 } from "../../shared/types";
 import { CategoryNode } from "../category/category.model";
@@ -19,6 +22,7 @@ import CommentRepository from "../comments/comment.repository";
 import { CONJUNCTION_TABLE, supabase } from "../../shared/supabase";
 import { AppError } from "../../cores/errors";
 import { isValidIdParams } from "../../shared/actions/checker";
+import { jsonCamelCase } from "../../shared/actions/to";
 
 type BaseProductInsert = TablesInsert<"base_products">;
 
@@ -48,6 +52,7 @@ export default class BaseProductService {
   );
 
   private userProdTable = CONJUNCTION_TABLE("user_products");
+  private prodCategoriesTable = CONJUNCTION_TABLE("product_categories");
 
   createProduct = async (
     req: Request,
@@ -170,16 +175,32 @@ export default class BaseProductService {
       product_id: newProductId,
     };
 
-    const { error: conjunctorError } =
+    const samplePC: ProductCategoriesInsert = {
+      product_id: newProductId,
+      category_id: insertedCategoryId
+    }
+
+    const { error: upConjunctorError } =
       await this.userProdTable.insert(sampleUP);
 
-    if (conjunctorError) {
+    const { error: pcConjunctorError } = await this.prodCategoriesTable.insert(samplePC);
+
+    if (upConjunctorError) {
       console.error(
         colors.red("Conjunction error response: "),
-        conjunctorError,
+        upConjunctorError,
       );
       return next(AppError.badRequest("Unable to insert UP conjunction table"));
     }
+
+    if(pcConjunctorError) {
+      console.error(
+        colors.red("Conjunction error response: "),
+        pcConjunctorError,
+      );
+      return next(AppError.badRequest("Unable to insert PC conjunction table"));
+    }
+    
 
     res.status(200).json({
       success: true,
@@ -196,14 +217,54 @@ export default class BaseProductService {
 
   // }
 
-  getProductById = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      await supabase.auth.signInWithOAuth({
-        provider: "google",
-      });
-    } catch (error) {
-      console.log(error);
+  getProductByUserAndProductId = async (req: Request, res: Response, next: NextFunction) => {
+    const userIdParams = req.params.userId;
+    const productIdParams = req.params.productId;
+    // const { data: categories, error: fetchCategoriesError } = await supabase.rpc(
+    //   "get_recursive_categories",
+    //   {categoryId: productIdParams}
+    // )
+    let fetchProductData = await this.productRepository.getProductById(Number(productIdParams));
+    fetchProductData = jsonCamelCase(fetchProductData);
+    const childrenCat: any = await this.categoryRepository.getChildrenOfCurrentCategory(fetchProductData.category as number);
+
+    // console.log(childrenCat);
+
+    const resultDto: BaseProductDto = {
+      id: fetchProductData.id,
+      asin: fetchProductData.asin,
+      url: fetchProductData.url,
+      image: fetchProductData.image,
+      title: fetchProductData.title,
+      price: fetchProductData.price,
+      numberOfComments: fetchProductData.numberOfComments,
+      averageRating: fetchProductData.averageRating,
+      isOutOfStock: fetchProductData.isOutOfStock,
+      brand: fetchProductData.brand,
+      retailer: fetchProductData.retailer,
+      bestSellerRanks: fetchProductData.bestSellerRanks,
+      isAmazonChoice: fetchProductData.isAmazonChoice,
+      isBestSeller: fetchProductData.isBestSeller,
+      histogram: fetchProductData.histogram,
+      deliveryLocation: fetchProductData.deliveryLocation,
+      salesVolumeLastMonth: fetchProductData.salesVolumeLastMonth,
+      averageSentimentAnalysis: fetchProductData.averageSentimentAnalysis,
+      businessTargetForCollecting: fetchProductData.businessTargetForCollecting,
+      createdAt: fetchProductData.createdAt,
+      updatedAt: fetchProductData.updatedAt,
+      category: childrenCat,
+      userId: Number(userIdParams) // foreign key
     }
+    
+
+    console.log("DTO format result");
+    console.log(resultDto);
+    // console.log(fetchProductData.price.amount)
+
+    res.status(200).json({
+      success: true,
+      data: resultDto
+    })
   };
 
   getAllProductsByUserId = async (
@@ -225,6 +286,6 @@ export default class BaseProductService {
       success: true,
       data: queryResults.data,
       count: queryResults.data.length
-    }) : next(AppError.badRequest("Bad request for query products"))
+    }) : next(AppError.badRequest("Bad request for query products"));
   };
 }

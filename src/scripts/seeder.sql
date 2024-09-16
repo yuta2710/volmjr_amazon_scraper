@@ -22,17 +22,18 @@ CREATE TABLE category (
 CREATE OR REPLACE FUNCTION get_recursive_categories(category_id INT)
 RETURNS TABLE(id INT, name TEXT, parent_id INT, lft INT, rgt INT) AS $$
 WITH RECURSIVE category_tree AS (
+    -- Select the parent category (the one matching the provided category_id)
     SELECT id, name, parent_id, lft, rgt
     FROM category
-    WHERE parent_id = $1  -- Starting point (the parent category)
+    WHERE id = $1  -- Starting with the provided category_id
 
     UNION ALL
 
+    -- Recursively select all child categories
     SELECT c.id, c.name, c.parent_id, c.lft, c.rgt
     FROM category c
     INNER JOIN category_tree ct ON c.parent_id = ct.id
 )
-
 SELECT * FROM category_tree;
 $$ LANGUAGE sql;
 

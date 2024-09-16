@@ -32,7 +32,7 @@ export default class AuthService {
   async signIn(req: Request, res: Response, next: NextFunction) {
     const { email, password } = req.body as AuthenticationRequest;
 
-    await this.signOut();
+    await this.signOut(req, res, next);
 
     const { data: signedInData, error } =
       await supabase.auth.signInWithPassword({
@@ -107,7 +107,11 @@ export default class AuthService {
     });
   }
 
-  async signOut(): Promise<void> {
+  async signOut(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     await this.db.auth.signOut();
   }
 }
