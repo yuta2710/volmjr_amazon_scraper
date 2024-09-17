@@ -32,8 +32,8 @@ export class CategoryNode {
     };
   }
 
-  displayHierarchyAsJSON(): void {
-    console.log(JSON.stringify(this.toJSON(), null, 2));
+  displayHierarchyAsJSON(): string {
+    return JSON.stringify(this.toJSON(), null, 2);
   }
 }
 

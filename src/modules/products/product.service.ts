@@ -64,6 +64,7 @@ export default class BaseProductService {
     const bot = new AmazonBotScraper(url, Platforms.AMAZON);
     const scrapedDataResponse: AmazonScrapedResponse | null =
     await bot.scraperData();
+    // const scrapedDataResponse: any = await bot.scrapeRelatedBestSellerRanks(`/Tablet-Cases/b/ref=dp_bc_aui_C_5?ie=UTF8&node=3012929011`);
 
     let newProductId: number;
     let insertedCategoryId: number | null = null;

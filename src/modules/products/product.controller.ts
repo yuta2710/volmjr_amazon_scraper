@@ -41,4 +41,12 @@ export default class AmazonBaseProductController implements BaseController {
   ) => {
     return this.service.createProduct(req, res, next);
   };
+
+  // private scrapeRelatedBestSellerRanks = async (
+  //   req: Request,
+  //   res: Response,
+  //   next: NextFunction,
+  // ) => {
+  //   return this.service.scrapeRelatedBestSellerRanks(req, res, next);
+  // };
 }

@@ -45,7 +45,7 @@ export class AmazonBotScraper extends BotScraper {
   private url: string;
   private normalCaptchSolver: NormalCaptchaSolver;
   private signInSolver: SignInSolver;
-  
+
   constructor(url: string, platform: Platforms) {
     super(platform);
     this.url = url;
@@ -59,6 +59,7 @@ export class AmazonBotScraper extends BotScraper {
     // const browser = await puppeteer.launch({ headless: true });
     const browser = await puppeteer.launch({
       headless: true,
+      // args: ["--start-maximized", "--window-size=1920,1080"],
     });
     this.page = await browser.newPage();
     await this.page.goto(this.url, { waitUntil: "load" });
@@ -129,6 +130,12 @@ export class AmazonBotScraper extends BotScraper {
     }
 
     // Still fixing best seller
+    // const actualCategoryUrl = await this.page.$eval(
+    //   "#wayfinding-breadcrumbs_feature_div ul li:last-child span a",
+    //   (el) => el.getAttribute("href"),
+    // );
+    // console.log("Starting scrape related");
+    // await this.scrapeRelatedBestSellerRanks(actualCategoryUrl);
 
     let reviewButton = null;
 
@@ -490,7 +497,8 @@ export class AmazonBotScraper extends BotScraper {
       console.log(colors.red("Percentage currently not available to display"));
     }
 
-    const bestSellerRankJson = await this.retrieveBestSellerRankByHtmlElement(page);
+    const bestSellerRankJson =
+      await this.retrieveBestSellerRankByHtmlElement(page);
     const bestSellerRankArr: string[] =
       bestSellerRankJson["attributeVal"].split("   ");
     const filteredBestSellerRank: BestSellerRank[] = filterBestSellerRanks(
@@ -904,4 +912,97 @@ export class AmazonBotScraper extends BotScraper {
       return collectedComments;
     }
   }
+
+  async scrapeRelatedBestSellerRanks(url: string) {
+    console.log("Main URL = ", url);
+    const browser = await puppeteer.launch({
+      headless: false,
+      args: ["--start-maximized", "--window-size=1920,1080"],
+    });
+    const newPage = await browser.newPage();
+  
+    try {
+      await newPage.goto(`https://${String(process.env.AMAZON_DOMAIN)}${url}`, { waitUntil: "load" });
+      const bestSellerUrl = await newPage.$eval("#s-result-sort-select option:nth-child(5)", (el) => el.getAttribute("data-url"));
+      await newPage.goto(`https://${String(process.env.AMAZON_DOMAIN)}${bestSellerUrl}`, { waitUntil: "load" });
+  
+      const listOfCompetitorProducts = await newPage.$$(".sg-col-4-of-24.sg-col-4-of-12.s-result-item.s-asin.sg-col-4-of-16.sg-col.s-widget-spacing-small.sg-col-4-of-20.gsx-ies-anchor");
+  
+      for (let i = 0; i < listOfCompetitorProducts.length; i++) {
+        try {
+          console.log(`\nStarting scrape product ${i + 1}`);
+          const rawHref = await listOfCompetitorProducts[i].$eval(".a-link-normal.s-underline-text.s-underline-link-text.s-link-style.a-text-normal", (el) => el.getAttribute("href"));
+          const formattedHref = `https://${String(process.env.AMAZON_DOMAIN)}${rawHref}`;
+  
+          await newPage.goto(formattedHref, { waitUntil: "networkidle0" });
+          await newPage.waitForSelector("table.a-normal.a-spacing-micro", { timeout: 50000 });
+  
+          const html = await newPage.$eval("table.a-normal.a-spacing-micro", (el) => el.textContent.trim());
+          console.log("Table HTML:", html);
+  
+          const productDetailsTableHtml = await newPage.$$("table.a-normal.a-spacing-micro tbody tr");
+  
+          if (productDetailsTableHtml.length > 0) {
+            const brandValue = await newPage.$eval("table.a-normal.a-spacing-micro tbody tr.a-spacing-small.po-brand td.a-span9", (el) => el.textContent.trim());
+            console.log("Brand:", brandValue);
+          }
+  
+          // Go back after scraping
+          await new Promise((resolve) => setTimeout(resolve, 2000)); // Adding a delay before going back
+          await newPage.goBack({ waitUntil: "load" });
+        } catch (error) {
+          console.error(`Error scraping product ${i + 1}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error("Error in scrapeRelatedBestSellerRanks:", error);
+    } finally {
+      await browser.close(); // Make sure the browser closes at the end
+    }
+  }
+  
 }
+
+// try {
+//   // Get the href element to click
+//   const rawHrefBtn = await listOfCompetitorProductsInBestSellerPage[i].$(
+//     ".a-link-normal.s-underline-text.s-underline-link-text.s-link-style.a-text-normal",
+//   );
+
+//   if (rawHrefBtn) {
+//     // Click the href to go to the product details page
+//     await Promise.all([
+//       rawHrefBtn.click(), // click the product
+//       newPage.waitForNavigation({ waitUntil: 'load' }) // wait for the navigation to complete
+//     ]);
+
+//     // Wait for the table element to appear
+//     await newPage.waitForSelector("table.a-normal.a-spacing-micro");
+
+//     // Scrape the product details
+//     const html = await newPage.$eval(
+//       "table.a-normal.a-spacing-micro",
+//       (el) => el.textContent.trim(),
+//     );
+
+//     console.log("Table HTML:", html);
+
+//     const productDetailsTableHtml = await newPage.$$(
+//       "table.a-normal.a-spacing-micro tbody tr",
+//     );
+
+//     if (productDetailsTableHtml && productDetailsTableHtml.length > 0) {
+//       console.log("productDetailsTableHtml length:", productDetailsTableHtml.length);
+//       const brandValue = await newPage.$eval(
+//         "table.a-normal.a-spacing-micro tbody tr.a-spacing-small.po-brand td.a-span9",
+//         (el) => el.textContent.trim(),
+//       );
+//       console.log("Brand:", brandValue);
+//       await newPage.goBack({waitUntil: "domcontentloaded"});
+//     }
+
+//     // await this.page.waitForNavigation({waitUntil: "domcontentloaded"})
+//   }
+// } catch (error) {
+//   console.error(`Error scraping product ${i + 1}:`, error);
+// }
