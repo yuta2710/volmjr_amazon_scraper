@@ -62,9 +62,8 @@ export default class BaseProductService {
     // const scrapedDataResponse: AmazonScrapedResponse | null =
     // await scrapeAmazonProduct(url as string);
     const bot = new AmazonBotScraper(url, Platforms.AMAZON);
-    const scrapedDataResponse: AmazonScrapedResponse | null =
-    await bot.scraperData();
-    // const scrapedDataResponse: any = await bot.scrapeRelatedBestSellerRanks(`/Tablet-Cases/b/ref=dp_bc_aui_C_5?ie=UTF8&node=3012929011`);
+    const scrapedDataResponse: AmazonScrapedResponse | null = await bot.scraperData();
+    // const scrapedDataResponse: any = await bot.scrapeRelatedBestSellerRanks(`/Fresh-Prepared-Sandwiches-Wraps/b/ref=dp_bc_aui_C_3?ie=UTF8&node=10771131011`);
 
     let newProductId: number;
     let insertedCategoryId: number | null = null;

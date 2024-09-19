@@ -31,6 +31,9 @@ export const renderSuccessComponent = async(res: Response, data: any): Promise<v
         },
         category: {
           data: data.product.category && await repo.getChildrenOfCurrentCategory(data.product.category),
+        },
+        competitors: {
+          data: data.competitors
         }
       },
     });

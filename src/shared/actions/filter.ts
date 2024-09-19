@@ -6,7 +6,7 @@ import { ElementHandle } from "puppeteer";
 import { BestSellerRank, CamelPriceComparison } from "../types";
 import { exec } from "child_process";
 import path from "path";
-import util from "util"
+import util from "util";
 
 export enum FilterProductAttributesFromUrl {
   ASIN,
@@ -279,16 +279,37 @@ export const incrementDayByString = (rawStr: string): string => {
   return incrementedDateString;
 };
 
-export const getCommonWordOfTwoString = (text1: string, text2: string): string => {
+export const getCommonWordOfTwoString = (
+  text1: string,
+  text2: string,
+): string => {
   var str1 = "IloveLinux";
   var str2 = "weloveNodejs";
 
   var arr1 = str1.split("");
   var arr2 = str2.split("");
 
-  var matchingElements = arr1.filter(function(item) {
+  var matchingElements = arr1.filter(function (item) {
     return arr2.indexOf(item) > -1;
   });
 
-  return matchingElements.length > 0 ? matchingElements.join(" ") : ""
-}
+  return matchingElements.length > 0 ? matchingElements.join(" ") : "";
+};
+
+export const filterBestKeywordToJson = (rawPythonResult: string): {
+  keyword: string,
+  score: number 
+}[] => {
+  const tupleRegex = /\('([^']+)'\s*,\s*([0-9.]+)\)/g;
+  const matches = [...rawPythonResult.matchAll(tupleRegex)];
+
+  // Step 2: Convert matches to the desired array of objects
+  const resultArray = matches.map((match) => {
+    return {
+      keyword: match[1], // First captured group (the keyword)
+      score: parseFloat(match[2]), // Second captured group (the score)
+    };
+  });
+
+  return resultArray;
+};

@@ -146,7 +146,8 @@ export type ProductHistogram = {
 export type AmazonScrapedResponse = {
   product: BaseProduct | null,
   comments: CommentItem[] | null,
-  category: CategoryNode | null
+  category: CategoryNode | null,
+  competitors?: CompetitorResponse[];
 }
 
 export type CategoryProps ={
@@ -205,4 +206,10 @@ export interface ErrorResponse {
   message: string;
   validationErrors?: ValidationType[];
   stack?: string;
+}
+
+export type CompetitorResponse = {
+  title?: string;
+  brand?: string;
+  url?: string;
 }

@@ -11,10 +11,12 @@ import {
   BestSellerRank,
   CamelPriceComparison,
   CommentItem,
+  CompetitorResponse,
 } from "../types";
 import { CategoryNode } from "@/modules/category/category.model";
 import {
   filterAsinFromUrl,
+  filterBestKeywordToJson,
   filterBestSellerRanks,
   filterCategoryAsListByHtml,
   filterComponentsOfPrice,
@@ -27,7 +29,11 @@ import {
 } from "./filter";
 import colors from "colors";
 import { retrieveProductPriceHistoryGroup } from "./camel+browser";
-import { analyzeEmotionByScore, analyzeSentiment } from "./analyze";
+import { analyzeEmotionByScore, analyzeSentiment, findBestMatchingProduct } from "./analyze";
+import path from "path";
+import util from "util";
+import { exec } from "child_process";
+import _ from "lodash";
 
 export abstract class BotScraper {
   private platform: Platforms;
@@ -59,6 +65,7 @@ export class AmazonBotScraper extends BotScraper {
     // const browser = await puppeteer.launch({ headless: true });
     const browser = await puppeteer.launch({
       headless: true,
+      // browser: "firefox",
       // args: ["--start-maximized", "--window-size=1920,1080"],
     });
     this.page = await browser.newPage();
@@ -130,13 +137,15 @@ export class AmazonBotScraper extends BotScraper {
     }
 
     // Still fixing best seller
-    // const actualCategoryUrl = await this.page.$eval(
-    //   "#wayfinding-breadcrumbs_feature_div ul li:last-child span a",
-    //   (el) => el.getAttribute("href"),
-    // );
-    // console.log("Starting scrape related");
-    // await this.scrapeRelatedBestSellerRanks(actualCategoryUrl);
-
+    const actualCategoryUrl = await this.page.$eval(
+      "#wayfinding-breadcrumbs_feature_div ul li:last-child span a",
+      (el) => el.getAttribute("href"),
+    );
+    console.log("Starting scrape related");
+    const competitorsData: CompetitorResponse[] = await this.scrapeRelatedBestSellerRanks(actualCategoryUrl);
+    
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    
     let reviewButton = null;
 
     try {
@@ -244,6 +253,7 @@ export class AmazonBotScraper extends BotScraper {
             category: flattenedCategoryHierarchy
               ? flattenedCategoryHierarchy
               : null,
+            competitors: competitorsData
           } as AmazonScrapedResponse;
         } catch (error) {
           console.error("Error in scrapeAmazonProduct:", error.message);
@@ -450,6 +460,7 @@ export class AmazonBotScraper extends BotScraper {
     } catch (error) {
       filtratedSalesVolumeLastMonth = "Not show";
     }
+
     const histogramTable = await page.$$("#histogramTable > li");
     let historamItemMapper = [];
 
@@ -913,55 +924,174 @@ export class AmazonBotScraper extends BotScraper {
     }
   }
 
-  async scrapeRelatedBestSellerRanks(url: string) {
+  async scrapeRelatedBestSellerRanks(url: string): Promise<CompetitorResponse[]> {
     console.log("Main URL = ", url);
+    const title =
+      'Tanisa Rice Paper, 38 Sheets Organic Rice Paper Wrappers, Low carb tortilla, Spring roll wrappers, Gluten FREE wraps (22cm, 12 oz) Non GMO Banh Trang Goi Cuon';
     const browser = await puppeteer.launch({
-      headless: false,
-      args: ["--start-maximized", "--window-size=1920,1080"],
+      headless: true,
+      // args: ["--window-size=1920,1080"],
     });
     const newPage = await browser.newPage();
-  
+    this.signInSolver.execute(newPage);
+
+    let competitors = [];
     try {
-      await newPage.goto(`https://${String(process.env.AMAZON_DOMAIN)}${url}`, { waitUntil: "load" });
-      const bestSellerUrl = await newPage.$eval("#s-result-sort-select option:nth-child(5)", (el) => el.getAttribute("data-url"));
-      await newPage.goto(`https://${String(process.env.AMAZON_DOMAIN)}${bestSellerUrl}`, { waitUntil: "load" });
-  
-      const listOfCompetitorProducts = await newPage.$$(".sg-col-4-of-24.sg-col-4-of-12.s-result-item.s-asin.sg-col-4-of-16.sg-col.s-widget-spacing-small.sg-col-4-of-20.gsx-ies-anchor");
-  
+      await newPage.goto(`https://${String(process.env.AMAZON_DOMAIN)}${url}`, {
+        waitUntil: "load",
+      });
+      await newPage.waitForSelector(
+        "#s-result-sort-select option:nth-child(5)",
+        {
+          timeout:50000,
+        },
+      );
+      const bestSellerUrl = await newPage.$eval(
+        "#s-result-sort-select option:nth-child(5)",
+        (el) => el.getAttribute("data-url"),
+      );
+      await newPage.goto(
+        `https://${String(process.env.AMAZON_DOMAIN)}${bestSellerUrl}`,
+        { waitUntil: "load" },
+      );
+
+      const listOfCompetitorProducts = await newPage.$$(
+        ".sg-col-4-of-24.sg-col-4-of-12.s-result-item.s-asin.sg-col-4-of-16.sg-col.s-widget-spacing-small.sg-col-4-of-20.gsx-ies-anchor",
+      );
       for (let i = 0; i < listOfCompetitorProducts.length; i++) {
-        try {
-          console.log(`\nStarting scrape product ${i + 1}`);
-          const rawHref = await listOfCompetitorProducts[i].$eval(".a-link-normal.s-underline-text.s-underline-link-text.s-link-style.a-text-normal", (el) => el.getAttribute("href"));
-          const formattedHref = `https://${String(process.env.AMAZON_DOMAIN)}${rawHref}`;
-  
-          await newPage.goto(formattedHref, { waitUntil: "networkidle0" });
-          await newPage.waitForSelector("table.a-normal.a-spacing-micro", { timeout: 50000 });
-  
-          const html = await newPage.$eval("table.a-normal.a-spacing-micro", (el) => el.textContent.trim());
-          console.log("Table HTML:", html);
-  
-          const productDetailsTableHtml = await newPage.$$("table.a-normal.a-spacing-micro tbody tr");
-  
-          if (productDetailsTableHtml.length > 0) {
-            const brandValue = await newPage.$eval("table.a-normal.a-spacing-micro tbody tr.a-spacing-small.po-brand td.a-span9", (el) => el.textContent.trim());
-            console.log("Brand:", brandValue);
+        // If title include keyword
+        // const title = await listOfCompetitorProducts[i].$eval(
+        //   ".a-link-normal.s-underline-text.s-underline-link-text.s-link-style.a-text-normal",
+        //   (el) => el.textContent.trim(),
+        // );
+        // console.log(`Keyword ${i + 1}` + bestKeywordsJson[0].keyword);
+        // console.log(`Title of product ${i + 1}: ${title}`);
+        const detailsPage = await browser.newPage();
+          try {
+            console.log(`\nStarting scrape product ${i + 1}`);
+
+            // Extract the product link
+            const rawHref = await listOfCompetitorProducts[i].$eval(
+              ".a-link-normal.s-underline-text.s-underline-link-text.s-link-style.a-text-normal",
+              (el) => el.getAttribute("href"),
+            );
+            const formattedHref = `https://${String(process.env.AMAZON_DOMAIN)}${rawHref}`;
+
+            // Navigate to the product page
+            await detailsPage.goto(formattedHref, {
+              waitUntil: "domcontentloaded",
+            });
+
+            try {
+              // Wait for the table to appear, set timeout to 50 seconds
+              // await detailsPage.waitForSelector("table.a-normal.a-spacing-micro", { timeout: 50000 });
+
+              // Extract the table's HTML content
+              const html = await detailsPage.$eval(
+                "table.a-normal.a-spacing-micro",
+                (el) => el.textContent.trim(),
+              );
+              const title = await detailsPage.$eval("#title", el => el.textContent.trim());
+              const currentUrl = detailsPage.url() as string;
+              
+              if (html) {
+                const productDetailsTableHtml = await detailsPage.$$(
+                  "table.a-normal.a-spacing-micro tbody tr",
+                );
+
+                if (productDetailsTableHtml.length > 0) {
+                  // Extract brand details
+                  let brandValue = await detailsPage.$eval(
+                    "table.a-normal.a-spacing-micro tbody tr.a-spacing-small.po-brand td.a-span9",
+                    (el) => el.textContent.trim(),
+                  );
+                  console.log("Brand:", brandValue);
+                  brandValue = _.startCase(_.lowerCase(brandValue))
+                  competitors.push({title, brandValue, url: currentUrl} as CompetitorResponse);
+                }
+              } 
+              // else {
+              //   console.error(`No brand value found in this shit page ${i + 1}`)
+              //   console.error("Close this shit and come to the next");
+              //   await detailsPage.close();
+              // }
+            } catch (timeoutError) {
+              console.error(
+                `Brand not display for this product ${i + 1}. Skipping next product.....`,
+              );
+              await detailsPage.close();
+              continue;
+              // Handle timeout - close the page and proceed to the next product
+            }
+
+            // Adding a delay before closing the page
+            // await new Promise((resolve) => setTimeout(resolve, 2000));
+
+            // Close the page after scraping
+            await detailsPage.close();
+          } catch (error) {
+            console.error(`Error scraping product ${i + 1}:`, error);
+            // Ensure the page is closed if an error occurs
+            if (detailsPage) {
+              await detailsPage.close();
+            }
           }
-  
-          // Go back after scraping
-          await new Promise((resolve) => setTimeout(resolve, 2000)); // Adding a delay before going back
-          await newPage.goBack({ waitUntil: "load" });
-        } catch (error) {
-          console.error(`Error scraping product ${i + 1}:`, error);
-        }
       }
     } catch (error) {
       console.error("Error in scrapeRelatedBestSellerRanks:", error);
     } finally {
+      console.log(`Collected ${competitors.length} brands`);
+      console.log(competitors);
       await browser.close(); // Make sure the browser closes at the end
     }
+
+    console.error("\n\nBest keywords in the title hahaha");
+    console.log(`Query title = ${title}`)
+
+    const relatedCompetitorsAnalysisList = await findBestMatchingProduct(title, competitors.map(data => data.title));
+
+    console.error("\n\n\nLet's go babi")
+    console.log(JSON.parse(relatedCompetitorsAnalysisList));
+
+    const parsedCompetitors = JSON.parse(relatedCompetitorsAnalysisList) as CompetitorResponse[];
+
+    return parsedCompetitors;
   }
-  
+
+
+  async getBestKeyword(text: string) {
+    const executablePath = path.join(
+      __dirname,
+      "../../../src/scripts/keyword_related.py",
+    );
+
+    const command = `python ${executablePath} '${text}'`;
+    // console.log(command);
+
+    const execPromise = util.promisify(exec);
+    try {
+      // Wait for the exec result
+      const { stdout, stderr } = await execPromise(command);
+
+      if (stderr) {
+        console.error("Error in exec: ", stderr);
+      }
+
+      // Capture the output and trim the result
+      const captureValue = stdout.trim();
+      // console.log("Capture value: ", captureValue);
+      // Update the description after the exec finishes
+      text = captureValue;
+      return text; // Return the updated description if needed
+    } catch (error) {
+      console.error("Error executing command: ", error);
+      throw error; // Optionally throw the error for handling later
+    }
+  }
+
 }
+
+
 
 // try {
 //   // Get the href element to click

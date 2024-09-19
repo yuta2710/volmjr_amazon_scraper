@@ -3,6 +3,11 @@ import * as natural from "natural";
 import * as stopword from "stopword";
 import { CommentItem } from "../types";
 import colors from "colors";
+import path from "path";
+import util from "util";
+import { exec } from "child_process";
+// import * as natural from 'natural';
+// import levenshtein from 'fast-levenshtein';
 // import lemmatizer from "wink-lemmatizer";
 
 const convertToStandard = (text: string) => {
@@ -221,3 +226,40 @@ export const analyzeSentimentGroupByMonth = (
   return result;
 };
 
+export const findBestMatchingProduct = async(queryTitle: string, unfilteredCompetitors: string[]) => {
+  console.log(`Query title = ${queryTitle}`)
+  console.log("Unfiltered titles");
+  console.log(unfilteredCompetitors);
+
+  const executablePath = path.join(
+    __dirname,
+    "../../../src/scripts/keyword_related.py",
+  );
+  // const competitorsJson = unfilteredCompetitors.map((competitor) => `'${competitor.replace(/'/g, "\\'")}'`).join(' ');
+  console.log("Fucking shit khoi");
+  console.log(unfilteredCompetitors)
+
+  console.log(colors.bgGreen("Stringify format of json"));
+  console.log(JSON.stringify(unfilteredCompetitors))
+
+// Modify the command to pass the query title and competitors as arguments
+  const command = `python ${executablePath} '${queryTitle}' '${JSON.stringify(unfilteredCompetitors)}'`;
+  const execPromise = util.promisify(exec);
+  try {
+    // Wait for the exec result
+    const { stdout, stderr } = await execPromise(command);
+
+    if (stderr) {
+      console.error("Error in exec: ", stderr);
+    }
+
+    // Capture the output and trim the result
+    const captureValue = stdout.trim();
+    // console.log("Capture value: ", captureValue);
+    // Update the description after the exec finishes
+    return captureValue; // Return the updated description if needed
+  } catch (error) {
+    console.error("Error executing command: ", error);
+    throw error; // Optionally throw the error for handling later
+  }
+}
