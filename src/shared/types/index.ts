@@ -212,4 +212,5 @@ export type CompetitorResponse = {
   title?: string;
   brand?: string;
   url?: string;
+  similarityScore?: number;
 }

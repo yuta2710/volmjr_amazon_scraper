@@ -112,3 +112,6 @@ export enum Platforms {
   EBAY = "ebay",
   WALMART = "walmart"
 }
+
+export const TOP_10 = 5;
+export const TOP_5 = 5;
