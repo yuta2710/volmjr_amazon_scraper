@@ -265,16 +265,15 @@ export const findBestMatchingProductInArrAttributes = async(queryTitle: string, 
 }
 
 export const findBestMatchingProductInSingleAttribute = async(queryTitle: string, uncheckedCompetitors: string) => {
-  console.log(`Query title = ${queryTitle}`)
-
   const executablePath = path.join(
     __dirname,
     "../../../src/scripts/keyword_related.py",
   );
-  // const competitorsJson = unfilteredCompetitors.map((competitor) => `'${competitor.replace(/'/g, "\\'")}'`).join(' ');
+  const escapedQueryTitle = queryTitle.replace(/'/g, "'\\''");
+  const escapedUncheckedCompetitors = uncheckedCompetitors.replace(/'/g, "'\\''");
 
 // Modify the command to pass the query title and competitors as arguments
-  const command = `python ${executablePath} '${queryTitle}' '${uncheckedCompetitors}'`;
+  const command = `python ${executablePath} '${escapedQueryTitle}' '${escapedUncheckedCompetitors}'`;
   const execPromise = util.promisify(exec);
   try {
     // Wait for the exec result

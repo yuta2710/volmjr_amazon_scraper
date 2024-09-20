@@ -32,6 +32,7 @@ type BaseProductInsert = TablesInsert<"base_products">;
 
 type AmazonScrapingProductRequest = {
   url: string;
+  keyword?: string;
 };
 
 export default class BaseProductService {
@@ -58,10 +59,10 @@ export default class BaseProductService {
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
-    const { url } = req.body as AmazonScrapingProductRequest;
+    const { url, keyword } = req.body as AmazonScrapingProductRequest;
     // const scrapedDataResponse: AmazonScrapedResponse | null =
     // await scrapeAmazonProduct(url as string);
-    const bot = new AmazonBotScraper(url, Platforms.AMAZON);
+    const bot = new AmazonBotScraper(url, keyword, Platforms.AMAZON);
     const scrapedDataResponse: AmazonScrapedResponse | null = await bot.scraperData();
     // const scrapedDataResponse: any = await bot.scrapeRelatedBestSellerRanks(`/Fresh-Prepared-Sandwiches-Wraps/b/ref=dp_bc_aui_C_3?ie=UTF8&node=10771131011`);
 

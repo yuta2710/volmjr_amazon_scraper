@@ -54,12 +54,14 @@ export abstract class BotScraper {
 export class AmazonBotScraper extends BotScraper {
   private page: Page;
   private url: string;
+  private keyword: string;
   private normalCaptchSolver: NormalCaptchaSolver;
   private signInSolver: SignInSolver;
 
-  constructor(url: string, platform: Platforms) {
+  constructor(url: string, keyword: string, platform: Platforms) {
     super(platform);
     this.url = url;
+    this.keyword = keyword;
     this.normalCaptchSolver = new NormalCaptchaSolver();
     this.signInSolver = new SignInSolver();
   }
@@ -100,6 +102,7 @@ export class AmazonBotScraper extends BotScraper {
       }
     }
 
+    // this.page.reload({ waitUntil: "load" });
     /**
      * TODO: ============================================================= Process/Build the category hirarchy =============================================================
      */
@@ -149,7 +152,10 @@ export class AmazonBotScraper extends BotScraper {
     );
     console.log("Starting scrape related competitors");
     const competitorsData: CompetitorResponse[] =
-      await this.scrapeRelatedBestSellerRanks(scrapedProduct.title as string, actualCategoryUrl as string);
+      await this.scrapeRelatedBestSellerRanks(
+        this.keyword as string,
+        actualCategoryUrl as string,
+      );
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
@@ -206,6 +212,8 @@ export class AmazonBotScraper extends BotScraper {
               await new Promise((resolve) => setTimeout(resolve, 2000)); // Add a small delay between retries
             }
           }
+
+          await new Promise((resolve) => setTimeout(resolve, 2000)); // Add a small delay between retries
 
           /**
            * TODO: ============================================================= Steps to scrape the comments ============================================================= */
@@ -681,6 +689,10 @@ export class AmazonBotScraper extends BotScraper {
       ".a-section.a-spacing-none.reviews-content.a-size-base",
     );
 
+    // await queryCommentPrimaryContainer.waitForSelector("div[data-hook='review']", {
+    //   timeout: 50000
+    // })
+
     const queryListOfComments = await queryCommentPrimaryContainer.$$(
       "div[data-hook='review']",
     );
@@ -941,7 +953,7 @@ export class AmazonBotScraper extends BotScraper {
     const browser = await puppeteer.launch({
       headless: true,
       // headless: false,
-      // args: ["--window-size=1920,1080"],
+      // args: ["--starts-maximized"],
     });
     const newPage = await browser.newPage();
 
@@ -955,7 +967,7 @@ export class AmazonBotScraper extends BotScraper {
       await newPage.goto(`https://${String(process.env.AMAZON_DOMAIN)}${url}`, {
         waitUntil: "load",
       });
-      
+
       await newPage.waitForSelector(
         "#s-result-sort-select option:nth-child(5)",
         {
@@ -981,12 +993,10 @@ export class AmazonBotScraper extends BotScraper {
         competitors,
         top5MatchThreshold,
       );
-
     } catch (error) {
       console.error("Error in scrapeRelatedBestSellerRanks:", error);
     } finally {
       console.log(`Collected ${competitors.length} brands`);
-
     }
 
     // return competitors2;
@@ -996,110 +1006,164 @@ export class AmazonBotScraper extends BotScraper {
   async scrapePageAndExtractCompetitors(
     page: Page,
     pageNumber: number,
-    mainTitle: string,
+    keyword: string,
     competitors2: any[] = [],
-    top5MatchThreshold: number = 0
+    top5MatchThreshold: number = 0,
   ): Promise<CompetitorResponse[]> {
     console.log(`Scraping page ${pageNumber}...`);
-    
+
     await page.waitForSelector(
       ".sg-col-4-of-24.sg-col-4-of-12.s-result-item.s-asin.sg-col-4-of-16.sg-col.s-widget-spacing-small.sg-col-4-of-20.gsx-ies-anchor",
       {
-        timeout: 50000
-      }
-    )
+        timeout: 50000,
+      },
+    );
+
     // Extract competitor products on the current page
     const listOfCompetitorProducts = await page.$$(
       ".sg-col-4-of-24.sg-col-4-of-12.s-result-item.s-asin.sg-col-4-of-16.sg-col.s-widget-spacing-small.sg-col-4-of-20.gsx-ies-anchor",
     );
-  
+
     for (let i = 0; i < listOfCompetitorProducts.length; i++) {
       const detailsPage = await page.browser().newPage();
       try {
         console.log(`Starting to scrape product ${i + 1}`);
-  
+
         const rawHref = await listOfCompetitorProducts[i].$eval(
           ".a-link-normal.s-underline-text.s-underline-link-text.s-link-style.a-text-normal",
           (el: any) => el.getAttribute("href"),
         );
         const formattedHref = `https://${String(process.env.AMAZON_DOMAIN)}${rawHref}`;
-  
+
         await detailsPage.goto(formattedHref, {
           waitUntil: "domcontentloaded",
         });
-  
+
         // Do the necessary data extraction logic here
-        const html = await detailsPage.$eval("table.a-normal.a-spacing-micro", (el) => el.textContent.trim());
-  
-        if (html) {
-          const detailsPageTitle = await detailsPage.$eval("#title", (el) => el.textContent.trim());
+        let productDetailsTableHtml = null;
+        let brandValue: string = "";
+
+        const detailsPageTitle = await detailsPage.$eval("#title", (el) =>
+          el.textContent.trim(),
+        );
+
+        try {
+          productDetailsTableHtml = await detailsPage.$eval(
+            "table.a-normal.a-spacing-micro",
+            (el) => el.textContent.trim(),
+          );
+        } catch (error) {
+          console.error("Product table not found");
+        }
+        console.log("Real table product");
+        console.log(productDetailsTableHtml);
+
+        if (productDetailsTableHtml) {
           const productDetailsTableHtml = await detailsPage.$$(
             "table.a-normal.a-spacing-micro tbody tr",
           );
-  
+
           if (productDetailsTableHtml.length > 0) {
-            let brandValue = await detailsPage.$eval(
+            brandValue = await detailsPage.$eval(
               "table.a-normal.a-spacing-micro tbody tr.a-spacing-small.po-brand td.a-span9",
               (el: any) => el.textContent.trim(),
             );
             brandValue = _.startCase(_.lowerCase(brandValue));
-  
-            const matchedEncoder = await findBestMatchingProductInSingleAttribute(
-              mainTitle,  // Change this to your main product title
-              detailsPageTitle,
-            );
-            const matchedDecoder = jsonCamelCase(JSON.parse(matchedEncoder)) as CompetitorResponse;
-            matchedDecoder.url = detailsPage.url();
+          }
+        } else {
+          productDetailsTableHtml = await detailsPage.$$(
+            "div#detailBullets_feature_div ul li",
+          );
 
-            console.log(colors.bgMagenta(`Product Analysis ${i + 1}`))
-            console.log(matchedDecoder)
+          console.log("Bullet ul list");
+          console.log(productDetailsTableHtml.length);
 
-            if (
-              matchedDecoder.title !== mainTitle &&
-              matchedDecoder.similarityScore > 0.7
-            ) {
-              if(top5MatchThreshold === TOP_5 || competitors2.length === TOP_5) {
-                return competitors2;
+          for(let i = 0; i < productDetailsTableHtml.length; i++) {
+            const liText = await detailsPage.$eval(`div#detailBullets_feature_div ul li:nth-child(${i + 1})`, el => el.textContent.trim())
+
+            // console.log("Data of li text");
+            // console.log(liText)
+            if(liText.includes("Manufacturer")) {
+              console.log("Matched li text");
+              const brandRawText = await productDetailsTableHtml[i].$eval("span", el => el.textContent.trim())
+              const brandObject = brandRawText
+              .split("  ")
+              // .filter(raw => raw !== "" && raw.replace("\n", "").trim())
+              .map(raw => raw.replace(/[\n\r\u200F\u200E]/g, '').trim()) // Remove \n and special characters
+              .filter(raw => raw !== "")
+              .filter(raw => raw !== ":")
+              ;
+              console.log(`Brand object`);
+              console.log(brandObject);
+              
+              if(brandObject.length > 0) {
+                brandValue = brandObject[1];
               }
-              competitors2.push(matchedDecoder);
-              top5MatchThreshold++;
-              console.log(`Added product ${i + 1} to the competitor list`)
-            }
-            else {
-              console.error("Duplicate product title and competitor information")
-              // continue;
+              // console.log(liText);
             }
           }
         }
+        console.log(`Keyword before putting to finding = ${keyword}`)
+        const matchedEncoder = await findBestMatchingProductInSingleAttribute(
+          keyword, // Change this to your main product title
+          detailsPageTitle,
+        );
+        const matchedDecoder = jsonCamelCase(
+          JSON.parse(matchedEncoder),
+        ) as CompetitorResponse;
+        matchedDecoder.url = detailsPage.url();
+
+        console.log(colors.bgMagenta(`Product Analysis ${i + 1}`));
+        console.log(matchedDecoder);
+
+        matchedDecoder.brand = brandValue;
+
+        if (
+          matchedDecoder.title !== keyword &&
+          matchedDecoder.similarityScore > 0.6 &&
+          matchedDecoder.brand !== ""
+        ) {
+          if (top5MatchThreshold === TOP_5 || competitors2.length === TOP_5) {
+            return competitors2;
+          }
+          competitors2.push(matchedDecoder);
+          top5MatchThreshold++;
+
+          console.log(`Added product ${i + 1} to the competitor list`);
+        } else {
+          console.error("Duplicate product title and competitor information");
+        }
+        // await new Promise((resolve) => setTimeout(resolve, 1000));
         await detailsPage.close();
       } catch (error) {
         console.error(`Error scraping product ${i + 1}:`, error);
         await detailsPage.close();
       }
     }
-  
-    console.log(`Collected ${competitors2.length} products on page ${pageNumber}.`);
 
-    if(competitors2.length === TOP_5) {
+    console.log(
+      `Collected ${competitors2.length} products on page ${pageNumber}.`,
+    );
+
+    if (competitors2.length === TOP_5) {
       return competitors2;
     }
-  
+
     // Check if there is a next button and recursively call the same function if needed
     const nextButton = await this.getNextButtonOfCompetitorsPage(page);
-  
+
     if (nextButton) {
       // Click the next button and wait for the new page to load
       await nextButton.click();
-      await page.waitForNavigation({ waitUntil: 'domcontentloaded' });
-  
-      const currentUrl = page.url();
+      await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+
       console.log(`Moving to the next page (Page ${pageNumber + 1})...`);
-  
+
       // Recursively scrape the next page
       return this.scrapePageAndExtractCompetitors(
         page,
         pageNumber + 1,
-        mainTitle,
+        keyword,
         competitors2,
         top5MatchThreshold,
       );
@@ -1108,29 +1172,34 @@ export class AmazonBotScraper extends BotScraper {
       return competitors2;
     }
   }
-  
+
   // Helper function to get the next button element
   async getNextButtonOfCompetitorsPage(page: Page) {
     const nextBtnStateManager = [
       "s-pagination-item s-pagination-next s-pagination-button s-pagination-separator",
       "s-pagination-item s-pagination-next s-pagination-disabled",
     ];
-  
+
     try {
       const nextButtonClassName = await page.$eval(
         ".s-pagination-item.s-pagination-next",
         (el) => el.getAttribute("class"),
       );
-  
+
       if (nextButtonClassName.includes(nextBtnStateManager[0])) {
-        console.log("Next button is available, preparing to move to the next page.");
+        console.log(
+          "Next button is available, preparing to move to the next page.",
+        );
         return await page.$(".s-pagination-item.s-pagination-next");
       } else if (nextButtonClassName.includes(nextBtnStateManager[1])) {
         console.log("Next button is disabled, no more pages.");
         return null;
       }
     } catch (error) {
-      console.error("Next button not found or error in finding next button:", error);
+      console.error(
+        "Next button not found or error in finding next button:",
+        error,
+      );
       return null;
     }
   }
@@ -1165,11 +1234,6 @@ export class AmazonBotScraper extends BotScraper {
     }
   }
 }
-
-
-
-
-
 
 // try {
 //   // Get the href element to click
