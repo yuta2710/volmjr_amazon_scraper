@@ -210,7 +210,6 @@ export const isValidPriceFormat = (priceStr: string): boolean => {
 export const filterComparisonPriceTextFromCamel = (
   htmlRawText: string,
 ): CamelPriceComparison => {
-  // const regex = /Amazon\s+\$([\d,.]+)[\s\S]*?\$([\d,.]+)[\s\S]*?\$([\d,.]+)[\s\S]*?\$([\d,.]+)/;
   const regex =
     /Amazon\s+\$([\d,.]+)\s+\(([\w\s,]+)\)[\s\S]*?\$([\d,.]+)\s+\(([\w\s,]+)\)[\s\S]*?\$([\d,.]+)\s+\(([\w\s,]+)\)[\s\S]*?\$([\d,.]+)\s+\(([\w\s,]+)\)/;
   const match = htmlRawText.match(regex);

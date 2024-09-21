@@ -267,6 +267,7 @@ export const findBestMatchingProductInArrAttributes = async(queryTitle: string, 
 export const findBestMatchingProductInSingleAttribute = async(queryTitle: string, uncheckedCompetitors: string) => {
   const executablePath = path.join(
     __dirname,
+    
     "../../../src/scripts/keyword_related.py",
   );
   const escapedQueryTitle = queryTitle.replace(/'/g, "'\\''");
@@ -285,7 +286,7 @@ export const findBestMatchingProductInSingleAttribute = async(queryTitle: string
 
     // Capture the output and trim the result
     const captureValue = stdout.trim();
-    // console.log("Capture value: ", captureValue);
+
     // Update the description after the exec finishes
     return captureValue; // Return the updated description if needed
   } catch (error) {

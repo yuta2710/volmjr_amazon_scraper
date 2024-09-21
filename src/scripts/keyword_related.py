@@ -23,6 +23,7 @@ result = {
 print(json.dumps(result, indent=4, ensure_ascii=False))
 
 
+
 # import sys
 # import json
 # from sentence_transformers import SentenceTransformer, util
@@ -61,3 +62,44 @@ print(json.dumps(result, indent=4, ensure_ascii=False))
 # print(json.dumps(results, indent=4, ensure_ascii=False))
 
 
+
+
+# import sys
+# import json
+# import torch
+# import transformers
+
+# my_title = sys.argv[1]
+# competitor_title = sys.argv[2]                      # Second argument: Competitor title (string)
+
+# # Load the BERT model and tokenizer
+# model = transformers.BertModel.from_pretrained('bert-base-uncased')
+# tokenizer = transformers.BertTokenizer.from_pretrained('bert-base-uncased')
+
+# # Tokenize the inputs
+# inputs1 = tokenizer(my_title, return_tensors='pt', padding=True, truncation=True)
+# inputs2 = tokenizer(competitor_title, return_tensors='pt', padding=True, truncation=True)
+
+# # Get the embeddings (last hidden state of the [CLS] token)
+# with torch.no_grad():
+#     outputs1 = model(**inputs1)
+#     outputs2 = model(**inputs2)
+
+# # Extract embeddings for the [CLS] token (the first token)
+# embedding1 = outputs1.last_hidden_state[:, 0, :]
+# embedding2 = outputs2.last_hidden_state[:, 0, :]
+
+# # Calculate the cosine similarity between the embeddings
+# cosine_similarity = torch.nn.functional.cosine_similarity(embedding1, embedding2)
+
+# # Convert the tensor to a Python float for JSON serialization
+# similarity_score = cosine_similarity.item()
+
+# # Create a result dictionary
+# result = {
+#     "title": competitor_title,  # Include the competitor's title
+#     "similarity_score": str(similarity_score)  # Convert the tensor to a float
+# }
+
+# # Print the result as a JSON string
+# print(json.dumps(result, indent=4, ensure_ascii=False))

@@ -115,3 +115,6 @@ export enum Platforms {
 
 export const TOP_10 = 5;
 export const TOP_5 = 5;
+
+export const SIXTY_PERCENTAGE_OF_EXPECTED_RELEVANT = 0.6;
+export const FIFTY_PERCENTAGE_OF_EXPECTED_RELEVANT = 0.5;
