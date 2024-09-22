@@ -118,3 +118,5 @@ export const TOP_5 = 5;
 
 export const SIXTY_PERCENTAGE_OF_EXPECTED_RELEVANT = 0.6;
 export const FIFTY_PERCENTAGE_OF_EXPECTED_RELEVANT = 0.5;
+
+export const MAXIMUM_TIMEOUT_FOR_SCRAPING = 50000 as const;

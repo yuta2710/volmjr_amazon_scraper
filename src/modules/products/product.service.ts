@@ -4,6 +4,7 @@ import { NextFunction, Request, Response } from "express";
 import { scrapeAmazonProduct } from "../../shared/actions/scraper";
 import {
   AmazonScrapedResponse,
+  AmazonScrapingProductRequest,
   BaseProduct,
   BaseProductDto,
   CommentItem,
@@ -30,12 +31,6 @@ type BaseProductInsert = TablesInsert<"base_products">;
 //   process.env.SUPABASE_ANON_KEY,
 // );
 
-type AmazonScrapingProductRequest = {
-  url: string;
-  keyword?: string;
-  topCompetitorAnalysisLimit?: number
-};
-
 export default class BaseProductService {
   private categoryRepository: AmazonCategoryRepository =
     new AmazonCategoryRepository(
@@ -60,11 +55,33 @@ export default class BaseProductService {
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
-    const { url, keyword, topCompetitorAnalysisLimit } = req.body as AmazonScrapingProductRequest;
+    const { url, isRetrieveCompetitors, competitorRetrieverOptions } =
+      req.body as AmazonScrapingProductRequest;
+    console.log("Oh shit request");
+    console.log({ url, isRetrieveCompetitors, competitorRetrieverOptions });
     // const scrapedDataResponse: AmazonScrapedResponse | null =
     // await scrapeAmazonProduct(url as string);
-    const bot = new AmazonBotScraper(url, keyword, topCompetitorAnalysisLimit, Platforms.AMAZON);
-    const scrapedDataResponse: AmazonScrapedResponse | null = await bot.scraperData();
+    let bot;
+
+    if (isRetrieveCompetitors) {
+      bot = new AmazonBotScraper(
+        url,
+        isRetrieveCompetitors,
+        competitorRetrieverOptions["keyword"],
+        competitorRetrieverOptions["topCompetitorAnalysisLimit"],
+        Platforms.AMAZON,
+      );
+    } else {
+      bot = new AmazonBotScraper(
+        url,
+        isRetrieveCompetitors,
+        undefined,
+        undefined,
+        Platforms.AMAZON,
+      );
+    }
+    const scrapedDataResponse: AmazonScrapedResponse | null =
+      await bot.scraperData();
     // const scrapedDataResponse: any = await bot.scrapeRelatedBestSellerRanks(`/Fresh-Prepared-Sandwiches-Wraps/b/ref=dp_bc_aui_C_3?ie=UTF8&node=10771131011`);
 
     let newProductId: number;
@@ -200,7 +217,6 @@ export default class BaseProductService {
     // }
 
     renderSuccessComponent(res, scrapedDataResponse);
-
   };
 
   getProductByUserAndProductId = async (

@@ -1,11 +1,20 @@
 import {
+  AmazonProductAverageRatingExtractor,
+  AmazonProductDeliveryLocationExtractor,
+  AmazonProductPriceBaseUnitGroupExtractor,
+  AmazonProductRetailerExtractor,
+} from "../html+extractor";
+import {
   FIFTY_PERCENTAGE_OF_EXPECTED_RELEVANT,
   MAXIMUM_TIMEOUT_FOR_SCRAPING,
   Platforms,
-} from "../../shared/constants";
+  SIXTY_PERCENTAGE_OF_EXPECTED_RELEVANT,
+} from "../constants";
 import puppeteer, { ElementHandle, Page } from "puppeteer";
 import { NormalCaptchaSolver, SignInSolver } from "./captcha";
 import {
+  AmazonProductAverageRatingExtractorResponse,
+  AmazonProductBasePriceUnitGroupContent,
   AmazonScrapedResponse,
   BaseProduct,
   BestSellerRank,
@@ -39,6 +48,7 @@ import util from "util";
 import { exec } from "child_process";
 import _ from "lodash";
 import { jsonCamelCase } from "./to";
+import { AmazonProductExtractorComponents } from "../html+extractor";
 
 export abstract class BotScraper {
   protected platform: Platforms;
@@ -54,27 +64,26 @@ export abstract class BotScraper {
 
 export class AmazonBotScraper extends BotScraper {
   private page: Page;
-  private isRetrieveCompetitors: boolean;
   private url: string;
-  private keyword?: string;
-  private topCompetitorAnalysisLimit?: number;
+  private keyword: string;
+  private topCompetitorAnalysisLimit: number;
   private normalCaptchSolver: NormalCaptchaSolver;
   private signInSolver: SignInSolver;
+  private extractorComponents: AmazonProductExtractorComponents;
 
   constructor(
     url: string,
-    isRetrieveCompetitors: boolean,
     keyword: string,
     topCompetitorAnalysisLimit: number,
     platform: Platforms,
   ) {
     super(platform);
     this.url = url;
-    this.isRetrieveCompetitors = isRetrieveCompetitors;
-    this.keyword = isRetrieveCompetitors? keyword : "";
-    this.topCompetitorAnalysisLimit = isRetrieveCompetitors ? topCompetitorAnalysisLimit : 0;
+    this.keyword = keyword;
+    this.topCompetitorAnalysisLimit = topCompetitorAnalysisLimit;
     this.normalCaptchSolver = new NormalCaptchaSolver();
     this.signInSolver = new SignInSolver();
+    this.extractorComponents = new AmazonProductExtractorComponents();
   }
 
   public getCurrentPlatform(): Platforms {
@@ -159,22 +168,18 @@ export class AmazonBotScraper extends BotScraper {
         priceHistoryGroup as CamelPriceComparison;
     }
 
-    let competitorsData: CompetitorResponse[] = [];
-
     // Still fixing best seller
-    if(this.isRetrieveCompetitors) {
-      const actualCategoryUrl = await this.page.$eval(
-        "#wayfinding-breadcrumbs_feature_div ul li:last-child span a",
-        (el) => el.getAttribute("href"),
+    const actualCategoryUrl = await this.page.$eval(
+      "#wayfinding-breadcrumbs_feature_div ul li:last-child span a",
+      (el) => el.getAttribute("href"),
+    );
+    console.log("Starting scrape related competitors");
+
+    const competitorsData: CompetitorResponse[] =
+      await this.scrapeRelatedBestSellerRanks(
+        this.keyword as string,
+        actualCategoryUrl as string,
       );
-      console.log("Starting scrape related competitors");
-  
-      competitorsData =
-        await this.scrapeRelatedBestSellerRanks(
-          this.keyword as string,
-          actualCategoryUrl as string,
-        );
-    }
 
     // await new Promise((resolve) => setTimeout(resolve, 2000));
 
@@ -351,136 +356,26 @@ export class AmazonBotScraper extends BotScraper {
       console.error("Unable to select Amazon Choice selector");
     }
 
-    // Current price text
-    let currentPrice: string = "Not show";
-    let currency: string = "";
-    let currentPriceText: string = "";
-
-    try {
-      currentPriceText = await page.$eval(
-        ".a-price.a-text-price.a-size-medium.apexPriceToPay span:nth-child(1)",
-        (el) => el.textContent.trim(),
-      );
-    } catch (error) {
-      console.error("Price text in apexPriceToPay not found");
-    }
-
-    try {
-      currentPriceText = (
-        await page.$eval(
-          ".a-price.aok-align-center.reinventPricePriceToPayMargin.priceToPay span",
-          (el) => el.textContent,
-        )
-      ).trim();
-    } catch (error) {
-      console.error(
-        "Price element not found or unable to extract reinventPricePriceToPayMargin:",
-      );
-    }
-
-    try {
-      currentPriceText = (
-        await page.$eval(
-          ".a-price.aok-align-center.reinventPricePriceToPayMargin.priceToPay",
-          (el) => el.textContent,
-        )
-      ).trim();
-
-      console.log(`Extractor = ${currentPriceText}`);
-      console.log(
-        `Is valid price format: ${isValidPriceFormat(currentPriceText)}`,
-      );
-
-      const isDuplicatedPriceTextValue =
-        currentPriceText.match(/\$\d+(\.\d{2})?/);
-
-      currentPriceText = isDuplicatedPriceTextValue["input"];
-    } catch (error) {
-      console.error(
-        "Price element of aok-offscreen not found or unable to extract SPAN reinventPricePriceToPayMargin:",
-      );
-    }
-
-    if (currentPriceText) {
-      currentPrice = currentPriceText;
-      currency = filterComponentsOfPrice(currentPrice)[0] as string;
-    }
-
-    // Original price
-    let originalPrice: string;
-    let originalPriceMetric: number;
-
-    try {
-      const originalPriceText = await page.$eval(
-        "span.a-size-small.a-color-secondary.aok-align-center.basisPrice span.a-offscreen",
-        (el) => el.textContent.trim(),
-      );
-
-      if (originalPriceText) {
-        originalPrice = originalPriceText;
-        originalPriceMetric = Number(originalPrice.replace("$", ""));
-      }
-    } catch (error) {
-      console.error("Price element not found or unable to extract price:");
-      originalPrice = "";
-      originalPriceMetric = 0;
-    }
+    // Scrape Base Price Unit Group
+    const basePriceUnitGroupContent: AmazonProductBasePriceUnitGroupContent =
+      await this.extractorComponents.getPriceBaseUnitGroup().extract(page);
 
     // Average rating of product
-    const averageRatingText = await page.$eval(
-      ".a-icon-alt",
-      (el) => el.textContent,
-    );
-
-    const filtratedAverageRatingMetric = Number(
-      averageRatingText.split(" ")[0],
-    );
+    const filtratedAverageRatingMetric: number = (
+      (await this.extractorComponents.getAverageRatingExtractor().extract(
+        page,
+      )) as AmazonProductAverageRatingExtractorResponse
+    ).averageRating as number;
 
     // Delivery location
-    let deliveryLocation: string = (
-      await page.$eval(
-        "span.nav-line-2.nav-progressive-content",
-        (el) => el.textContent,
-      )
-    ).trim();
+    const deliveryLocation = (
+      await this.extractorComponents.getDeliveryLocationExtractor().extract(page)
+    ).deliveryLocation;
 
-    if (deliveryLocation === "United States Min...") {
-      deliveryLocation = "United States Minor Outlying Islands";
-    }
-
-    let retailerElement = null;
-
-    try {
-      retailerElement = await page.$("#sellerProfileTriggerId");
-    } catch (error) {
-      console.error(
-        "Unable to retailer name by ID = " +
-          colors.cyan("sellerProfileTriggerId"),
-      );
-    }
-
-    try {
-      retailerElement = await page.$(
-        "#merchantInfoFeature_feature_div div[offer-display-feature-name='desktop-merchant-info'] span.a-size-small.offer-display-feature-text-message",
-      );
-    } catch (error) {
-      console.error(
-        "Unable to retailer name by ID = " +
-          colors.cyan("merchantInfoFeature_feature_div"),
-      );
-    }
-
-    let retailerName: string | null = null;
-
-    if (retailerElement) {
-      retailerName = await page.evaluate(
-        (el) => el.textContent.trim(),
-        retailerElement,
-      );
-    } else {
-      console.warn("Retailer name element not found.");
-      retailerName = "Not show";
-    }
+    // Retailer
+    const retailerName: string = (
+      await this.extractorComponents.getRetailerExtractor().extract(page)
+    ).retailer;
 
     // Filtrated sales volume last month
     let filtratedSalesVolumeLastMonth: string | null;
@@ -564,9 +459,9 @@ export class AmazonBotScraper extends BotScraper {
 
     let filteredPriceAsNumeric: number;
 
-    if (currentPriceText) {
+    if (basePriceUnitGroupContent.currentPrice) {
       filteredPriceAsNumeric = filterComponentsOfPrice(
-        currentPrice,
+        basePriceUnitGroupContent.currentPrice,
       )[1] as number;
     }
 
@@ -575,13 +470,15 @@ export class AmazonBotScraper extends BotScraper {
       title,
       price: {
         amount: filteredPriceAsNumeric,
-        currency,
-        displayAmount: String(currentPrice),
-        originalPrice: originalPriceMetric || filteredPriceAsNumeric,
+        currency: basePriceUnitGroupContent.currency,
+        displayAmount: String(basePriceUnitGroupContent.currentPrice),
+        originalPrice:
+          basePriceUnitGroupContent.originalPriceMetric ||
+          filteredPriceAsNumeric,
         savings: {
           percentage: percentage !== undefined ? percentage : "",
-          currency,
-          displayAmount: String(currentPrice),
+          currency: basePriceUnitGroupContent.currency,
+          displayAmount: String(basePriceUnitGroupContent.currentPrice),
           amount: filteredPriceAsNumeric,
         },
       },
@@ -1132,9 +1029,6 @@ export class AmazonBotScraper extends BotScraper {
             "div#detailBullets_feature_div ul li",
           );
 
-          // console.log("Bullet ul list");
-          // console.log(productDetailsTableHtml.length);
-
           for (let i = 0; i < productDetailsTableHtml.length; i++) {
             const liText = await detailsPage.$eval(
               `div#detailBullets_feature_div ul li:nth-child(${i + 1})`,
@@ -1189,7 +1083,7 @@ export class AmazonBotScraper extends BotScraper {
             return competitors;
           }
           competitors.push(matchedDecoder);
-          top5MatchThreshold++;
+          ++top5MatchThreshold;
 
           console.log(`Added product ${i + 1} to the competitor list`);
         }

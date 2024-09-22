@@ -1,16 +1,17 @@
-import { SupabaseClient } from '@supabase/supabase-js'
+import { SupabaseClient } from "@supabase/supabase-js";
 import { CategoryNode } from "../../modules/category/category.model";
 import { Database, Tables, TablesInsert } from "./database.types";
-import { UserRole } from '../constants';
+import { UserRole } from "../constants";
 
 export declare type BaseProductInsert = TablesInsert<"base_products">;
 export declare type BaseCommentInsert = TablesInsert<"comments">;
 export declare type BaseCategoryInsert = TablesInsert<"category">;
 export declare type UserProfileInsert = TablesInsert<"user_profiles">;
 export declare type UserProductInsert = TablesInsert<"user_products">;
-export declare type ProductCategoriesInsert = TablesInsert<"product_categories">;
+export declare type ProductCategoriesInsert =
+  TablesInsert<"product_categories">;
 
-export type TypedSupabaseClient = SupabaseClient<Database>
+export type TypedSupabaseClient = SupabaseClient<Database>;
 
 export type PriceHistoryItem = {
   price: number;
@@ -54,7 +55,7 @@ export type BaseProduct = {
   };
   businessTargetForCollecting?: string;
   createdAt?: Date;
-  updatedAt?: Date; 
+  updatedAt?: Date;
   userId?: number; // foreign key
 } | null;
 
@@ -99,13 +100,13 @@ export type BaseProductDto = {
   businessTargetForCollecting?: string;
   createdAt?: Date;
   updatedAt?: Date;
-  userId?: number; 
+  userId?: number;
 } | null;
 
 export type BestSellerRank = {
   rank?: string;
   categoryMarket?: string;
-}
+};
 
 export type CommentItem = {
   title: string;
@@ -122,17 +123,17 @@ export type CommentItem = {
     emotion: string;
   };
   pagination?: {
-   totalRecords?: number,
-   currentPage?: number,
-   nextPage?: {
-    url?: string;
-    metric?: number;
-   },
-   prevPage?: {
-    url?: string;
-    metric?: number;
-   },  
- }
+    totalRecords?: number;
+    currentPage?: number;
+    nextPage?: {
+      url?: string;
+      metric?: number;
+    };
+    prevPage?: {
+      url?: string;
+      metric?: number;
+    };
+  };
 };
 
 export type ProductHistogram = {
@@ -144,19 +145,19 @@ export type ProductHistogram = {
 };
 
 export type AmazonScrapedResponse = {
-  product: BaseProduct | null,
-  comments: CommentItem[] | null,
-  category: CategoryNode | null,
+  product: BaseProduct | null;
+  comments: CommentItem[] | null;
+  category: CategoryNode | null;
   competitors?: CompetitorResponse[];
-}
+};
 
-export type CategoryProps ={
+export type CategoryProps = {
   id?: string;
   name?: string;
   lft?: number;
   rgt?: number;
   parent_id?: number;
-}
+};
 
 export type CamelPriceComparison = {
   lowestPrice?: {
@@ -172,12 +173,12 @@ export type CamelPriceComparison = {
     value: number | 0;
   };
   averagePrice?: number | 0;
-}
+};
 
-export type AuthenticationRequest = { 
+export type AuthenticationRequest = {
   email: string;
-  password: string; 
-}
+  password: string;
+};
 
 export type CoreUser = {
   id?: number;
@@ -188,17 +189,17 @@ export type CoreUser = {
   role?: UserRole;
   workspaces?: string[];
   products?: BaseProduct[];
-  createdAt?: Date
-  updatedAt?: Date 
-}
+  createdAt?: Date;
+  updatedAt?: Date;
+};
 
 export type AdminUser = CoreUser & {
   role: UserRole.ADMIN;
-}
+};
 
 export interface ValidationType {
   fields: string[];
-  constraint: string; 
+  constraint: string;
 }
 
 export interface ErrorResponse {
@@ -213,4 +214,26 @@ export type CompetitorResponse = {
   brand?: string;
   url?: string;
   similarityScore?: number;
-}
+};
+
+export type AmazonProductBasePriceUnitGroupContent = {
+  currentPrice?: string;
+  originalPrice?: string;
+  originalPriceMetric?: number;
+  currency?: string;
+};
+
+export type AmazonProductAverageRatingExtractorResponse = {
+  averageRating: number;
+};
+
+export type AmazonScrapingProductRequest = {
+  url: string;
+  isRetrieveCompetitors: boolean;
+  competitorRetrieverOptions?: AmazonScrapingProductCompetitorRequestOptions;
+};
+
+export type AmazonScrapingProductCompetitorRequestOptions = {
+  keyword?: string;
+  topCompetitorAnalysisLimit?: number;
+};
