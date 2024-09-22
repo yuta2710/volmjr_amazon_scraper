@@ -9,7 +9,7 @@ import colors from "colors";
 
 export abstract class BaseExtractor<T> implements InitialExtractorDesign<T> {
   abstract extract(page: Page): Promise<T>;
-  
+
   protected async safeEval(query: string, page: Page, fallback: T): Promise<T> {
     try {
       return (await page.$eval(query, (el) =>
@@ -22,14 +22,15 @@ export abstract class BaseExtractor<T> implements InitialExtractorDesign<T> {
   }
 }
 
-
 export class AmazonProductExtractorComponents {
   private priceBaseUnitGroup: AmazonProductPriceBaseUnitGroupExtractor =
     new AmazonProductPriceBaseUnitGroupExtractor();
   private averageRatingExtractor: AmazonProductAverageRatingExtractor =
     new AmazonProductAverageRatingExtractor();
-  private retailerExtractor: AmazonProductRetailerExtractor = new AmazonProductRetailerExtractor();  
-  private deliveryLocationExtractor: AmazonProductDeliveryLocationExtractor = new AmazonProductDeliveryLocationExtractor();  
+  private retailerExtractor: AmazonProductRetailerExtractor =
+    new AmazonProductRetailerExtractor();
+  private deliveryLocationExtractor: AmazonProductDeliveryLocationExtractor =
+    new AmazonProductDeliveryLocationExtractor();
 
   getPriceBaseUnitGroup(): AmazonProductPriceBaseUnitGroupExtractor {
     return this.priceBaseUnitGroup;
@@ -48,8 +49,10 @@ export class AmazonProductExtractorComponents {
   }
 }
 
-export class AmazonProductDeliveryLocationExtractor extends BaseExtractor<{deliveryLocation: string}> {
-  async extract(page: Page): Promise<{ deliveryLocation: string; }> {
+export class AmazonProductDeliveryLocationExtractor extends BaseExtractor<{
+  deliveryLocation: string;
+}> {
+  async extract(page: Page): Promise<{ deliveryLocation: string }> {
     let deliveryLocation: string = (
       await page.$eval(
         "span.nav-line-2.nav-progressive-content",
@@ -61,12 +64,14 @@ export class AmazonProductDeliveryLocationExtractor extends BaseExtractor<{deliv
       deliveryLocation = "United States Minor Outlying Islands";
     }
 
-    return {deliveryLocation}
+    return { deliveryLocation };
   }
 }
 
-export class AmazonProductRetailerExtractor extends BaseExtractor<{retailer: string}> {
-  async extract(page: Page): Promise<{ retailer: string; }> {
+export class AmazonProductRetailerExtractor extends BaseExtractor<{
+  retailer: string;
+}> {
+  async extract(page: Page): Promise<{ retailer: string }> {
     let retailerElement = null;
 
     try {
@@ -101,9 +106,8 @@ export class AmazonProductRetailerExtractor extends BaseExtractor<{retailer: str
       retailerName = "Not show";
     }
 
-    return {retailer: retailerName}; 
+    return { retailer: retailerName };
   }
-
 }
 
 export class AmazonProductAverageRatingExtractor extends BaseExtractor<AmazonProductAverageRatingExtractorResponse> {

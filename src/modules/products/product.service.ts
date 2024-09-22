@@ -1,35 +1,25 @@
-import colors from "colors";
-// import { supabase } from "../../../cores/db/supabase";
 import { NextFunction, Request, Response } from "express";
-import { scrapeAmazonProduct } from "../../shared/actions/scraper";
 import {
   AmazonScrapedResponse,
   AmazonScrapingProductRequest,
   BaseProduct,
   BaseProductDto,
+  BaseProductInsert,
   CommentItem,
   ProductCategoriesInsert,
   UserProductInsert,
 } from "../../shared/types";
 import { CategoryNode } from "../category/category.model";
-import { TablesInsert } from "../../shared/types/database.types";
 import AmazonBaseProductRepository from "./product.repository";
 import AmazonCategoryRepository from "../category/category.repository";
 import CommentRepository from "../comments/comment.repository";
-import { CONJUNCTION_TABLE, supabase } from "../../shared/supabase";
+import { CONJUNCTION_TABLE } from "../../shared/supabase";
 import { AppError } from "../../cores/errors";
 import { isValidIdParams } from "../../shared/actions/checker";
 import { jsonCamelCase } from "../../shared/actions/to";
 import { renderSuccessComponent } from "../../cores/success";
 import { AmazonBotScraper } from "../../shared/actions/scraper.v2";
 import { Platforms } from "../../shared/constants";
-
-type BaseProductInsert = TablesInsert<"base_products">;
-
-// const supabase = createClient<Database>(
-//   process.env.SUPABASE_URL,
-//   process.env.SUPABASE_ANON_KEY,
-// );
 
 export default class BaseProductService {
   private categoryRepository: AmazonCategoryRepository =
@@ -57,10 +47,7 @@ export default class BaseProductService {
   ): Promise<void> => {
     const { url, isRetrieveCompetitors, competitorRetrieverOptions } =
       req.body as AmazonScrapingProductRequest;
-    console.log("Oh shit request");
-    console.log({ url, isRetrieveCompetitors, competitorRetrieverOptions });
-    // const scrapedDataResponse: AmazonScrapedResponse | null =
-    // await scrapeAmazonProduct(url as string);
+
     let bot;
 
     if (isRetrieveCompetitors) {
@@ -279,15 +266,54 @@ export default class BaseProductService {
     const queryResults = await this.productRepository.getAllProductsByUserId(
       checkedIdParam as number,
     );
+    let productDtos: BaseProductDto[] = [];
+
+    for (let data of queryResults.data) {
+      let fetchProductData: any = jsonCamelCase(data);
+
+      const childrenCat: any =
+        await this.categoryRepository.getChildrenOfCurrentCategory(
+          fetchProductData.category as number,
+        );
+
+      let resultDto: BaseProductDto = {
+        id: fetchProductData.id,
+        asin: fetchProductData.asin,
+        url: fetchProductData.url,
+        image: fetchProductData.image,
+        title: fetchProductData.title,
+        price: fetchProductData.price,
+        numberOfComments: fetchProductData.numberOfComments,
+        averageRating: fetchProductData.averageRating,
+        isOutOfStock: fetchProductData.isOutOfStock,
+        brand: fetchProductData.brand,
+        retailer: fetchProductData.retailer,
+        bestSellerRanks: fetchProductData.bestSellerRanks,
+        isAmazonChoice: fetchProductData.isAmazonChoice,
+        isBestSeller: fetchProductData.isBestSeller,
+        histogram: fetchProductData.histogram,
+        deliveryLocation: fetchProductData.deliveryLocation,
+        salesVolumeLastMonth: fetchProductData.salesVolumeLastMonth,
+        averageSentimentAnalysis: fetchProductData.averageSentimentAnalysis,
+        businessTargetForCollecting:
+          fetchProductData.businessTargetForCollecting,
+        createdAt: fetchProductData.createdAt,
+        updatedAt: fetchProductData.updatedAt,
+      };
+
+      resultDto = {
+        ...resultDto,
+        category: childrenCat,
+        userId: Number(userIdParam),
+      };
+      productDtos.push(resultDto)
+    }
+
+    console.log("Cardi B DTO");
+    console.log(productDtos);
 
     queryResults.data
-      ? renderSuccessComponent(res, queryResults.data)
+      ? renderSuccessComponent(res, productDtos as [])
       : next(AppError.badRequest("Bad request for query products"));
   };
 }
-
-// if (scrapedDataResponse != null) {
-//   console.log("Response is not null");
-// } else {
-//   console.error("Product be null");
-// }

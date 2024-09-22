@@ -4,9 +4,7 @@ import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
 import cookieParser from "cookie-parser";
-import Redis from "ioredis";
 import BaseController from './shared/controller';
-import { protect } from './middleware/AuthenticationMiddleware';
 import { ErrorMiddleware } from './middleware/ErrorMiddleware';
 
 export default class App {

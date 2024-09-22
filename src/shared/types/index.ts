@@ -237,3 +237,8 @@ export type AmazonScrapingProductCompetitorRequestOptions = {
   keyword?: string;
   topCompetitorAnalysisLimit?: number;
 };
+
+export type HeadlessBrowserOptions = {
+  headless: boolean,
+  args?: string[],
+}

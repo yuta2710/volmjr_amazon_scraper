@@ -8,9 +8,10 @@ export const renderSuccessComponent = async(res: Response, data: any): Promise<v
   if(isArray(data)) {
     res.status(200).json({
       success: true,
+      count: data.length, 
       data,
-      count: data.length 
     })
+    return;
   }
   if(isValidAmazonScrapedResponse(data)) {
     const repo = new AmazonCategoryRepository();
@@ -37,12 +38,14 @@ export const renderSuccessComponent = async(res: Response, data: any): Promise<v
         }
       },
     });
+    return;
   } 
   else {
     res.status(200).json({
       success: true,
       data,
     })
+    return;
   }
 }
 

@@ -1,9 +1,10 @@
 import {
   FIFTY_PERCENTAGE_OF_EXPECTED_RELEVANT,
+  HEADLESS_STATE_MANAGEMENT,
   MAXIMUM_TIMEOUT_FOR_SCRAPING,
   Platforms,
 } from "../../shared/constants";
-import puppeteer, { ElementHandle, Page } from "puppeteer";
+import puppeteer, { Browser, ElementHandle, Page } from "puppeteer";
 import { NormalCaptchaSolver, SignInSolver } from "./captcha";
 import {
   AmazonScrapedResponse,
@@ -48,6 +49,7 @@ export abstract class BotScraper {
   }
 
   // Abstract method declaration: No implementation, subclasses must implement this
+  public abstract activateBot(): Promise<Browser>;
   public abstract scraperData(): Promise<any>;
   public abstract getCurrentPlatform(): Platforms;
 }
@@ -71,8 +73,10 @@ export class AmazonBotScraper extends BotScraper {
     super(platform);
     this.url = url;
     this.isRetrieveCompetitors = isRetrieveCompetitors;
-    this.keyword = isRetrieveCompetitors? keyword : "";
-    this.topCompetitorAnalysisLimit = isRetrieveCompetitors ? topCompetitorAnalysisLimit : 0;
+    this.keyword = isRetrieveCompetitors ? keyword : "";
+    this.topCompetitorAnalysisLimit = isRetrieveCompetitors
+      ? topCompetitorAnalysisLimit
+      : 0;
     this.normalCaptchSolver = new NormalCaptchaSolver();
     this.signInSolver = new SignInSolver();
   }
@@ -81,19 +85,20 @@ export class AmazonBotScraper extends BotScraper {
     return this.platform;
   }
 
-  async scraperData(): Promise<AmazonScrapedResponse> {
-    if (!this.url) return;
+  async activateBot(): Promise<Browser> {
+    const browser: Browser = await puppeteer.launch(
+      HEADLESS_STATE_MANAGEMENT.PRODUCTION_MODE,
+    );
 
-    // const browser = await puppeteer.launch({ headless: true });
-    const browser = await puppeteer.launch({
-      headless: true,
-      // headless: false,
-      // args: ["--start-maximized"],
-      // browser: "firefox",
-    });
     this.page = await browser.newPage();
     await this.page.goto(this.url, { waitUntil: "load" });
 
+    return browser;
+  }
+
+  async scraperData(): Promise<AmazonScrapedResponse> {
+    if (!this.url) return;
+    const browser: Browser = await this.activateBot();
     await this.normalCaptchSolver.execute(this.page);
 
     // Attempt sign-in with retries
@@ -162,18 +167,17 @@ export class AmazonBotScraper extends BotScraper {
     let competitorsData: CompetitorResponse[] = [];
 
     // Still fixing best seller
-    if(this.isRetrieveCompetitors) {
+    if (this.isRetrieveCompetitors) {
       const actualCategoryUrl = await this.page.$eval(
         "#wayfinding-breadcrumbs_feature_div ul li:last-child span a",
         (el) => el.getAttribute("href"),
       );
       console.log("Starting scrape related competitors");
-  
-      competitorsData =
-        await this.scrapeRelatedBestSellerRanks(
-          this.keyword as string,
-          actualCategoryUrl as string,
-        );
+
+      competitorsData = await this.scrapeRelatedBestSellerRanks(
+        this.keyword as string,
+        actualCategoryUrl as string,
+      );
     }
 
     // await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -1297,47 +1301,3 @@ export class AmazonBotScraper extends BotScraper {
     }
   }
 }
-
-// try {
-//   // Get the href element to click
-//   const rawHrefBtn = await listOfCompetitorProductsInBestSellerPage[i].$(
-//     ".a-link-normal.s-underline-text.s-underline-link-text.s-link-style.a-text-normal",
-//   );
-
-//   if (rawHrefBtn) {
-//     // Click the href to go to the product details page
-//     await Promise.all([
-//       rawHrefBtn.click(), // click the product
-//       newPage.waitForNavigation({ waitUntil: 'load' }) // wait for the navigation to complete
-//     ]);
-
-//     // Wait for the table element to appear
-//     await newPage.waitForSelector("table.a-normal.a-spacing-micro");
-
-//     // Scrape the product details
-//     const html = await newPage.$eval(
-//       "table.a-normal.a-spacing-micro",
-//       (el) => el.textContent.trim(),
-//     );
-
-//     console.log("Table HTML:", html);
-
-//     const productDetailsTableHtml = await newPage.$$(
-//       "table.a-normal.a-spacing-micro tbody tr",
-//     );
-
-//     if (productDetailsTableHtml && productDetailsTableHtml.length > 0) {
-//       console.log("productDetailsTableHtml length:", productDetailsTableHtml.length);
-//       const brandValue = await newPage.$eval(
-//         "table.a-normal.a-spacing-micro tbody tr.a-spacing-small.po-brand td.a-span9",
-//         (el) => el.textContent.trim(),
-//       );
-//       console.log("Brand:", brandValue);
-//       await newPage.goBack({waitUntil: "domcontentloaded"});
-//     }
-
-//     // await this.page.waitForNavigation({waitUntil: "domcontentloaded"})
-//   }
-// } catch (error) {
-//   console.error(`Error scraping product ${i + 1}:`, error);
-// }
