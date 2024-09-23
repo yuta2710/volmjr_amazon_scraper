@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import {
   AmazonScrapedResponse,
+  AmazonScrapingProductCompetitorRequestOptions,
   AmazonScrapingProductRequest,
   BaseProduct,
   BaseProductDto,
@@ -306,7 +307,7 @@ export default class BaseProductService {
         category: childrenCat,
         userId: Number(userIdParam),
       };
-      productDtos.push(resultDto)
+      productDtos.push(resultDto);
     }
 
     console.log("Cardi B DTO");
@@ -316,4 +317,17 @@ export default class BaseProductService {
       ? renderSuccessComponent(res, productDtos as [])
       : next(AppError.badRequest("Bad request for query products"));
   };
+
+  // retrieveAndViewOnlyCompetitors = async (
+  //   req: Request,
+  //   res: Response,
+  //   next: NextFunction,
+  // ) => {
+  //   const {keyword, topCompetitorAnalysisLimit} = req.body as AmazonScrapingProductCompetitorRequestOptions;
+  //   const bot = new AmazonBotScraper()
+  //   const data = await this.scrapeRelatedBestSellerRanks(
+  //     this.keyword as string,
+  //     actualCategoryUrl as string,
+  //   );
+  // }
 }

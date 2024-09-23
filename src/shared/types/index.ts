@@ -213,6 +213,8 @@ export type CompetitorResponse = {
   title?: string;
   brand?: string;
   url?: string;
+  averageRating?: number;
+  numberOfReviews?: number;
   similarityScore?: number;
 };
 

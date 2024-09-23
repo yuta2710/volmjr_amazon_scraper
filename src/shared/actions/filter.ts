@@ -38,7 +38,7 @@ export const filterAsinFromUrl = (
   if (match) {
     return match[1];
   } else {
-    console.log("No match found");
+    console.log("No match found of asin from URL");
   }
 };
 
@@ -175,14 +175,14 @@ export const filterBestSellerRanks = (data: string[]): BestSellerRank[] => {
     const rankMatch = rankString.match(/#([\d,]+)/); // Updated regex to capture digits and commas
     const categoryMatch = rankString.match(/in\s+(.+?)(\s+\(See Top 100|\s*$)/);
 
-    if (rankMatch && rankMatch[1]) {
-      const rankNumeric: number = parseInt(rankMatch[1].replace(/,/g, ""), 10); // Remove commas before converting
-      console.log(`Rank value: #${rankNumeric}`);
-    }
+    // if (rankMatch && rankMatch[1]) {
+    //   const rankNumeric: number = parseInt(rankMatch[1].replace(/,/g, ""), 10); // Remove commas before converting
+    //   console.log(`Rank value: #${rankNumeric}`);
+    // }
 
-    if (categoryMatch && categoryMatch[1]) {
-      console.log(`Category value: ${categoryMatch[1].trim()}`);
-    }
+    // if (categoryMatch && categoryMatch[1]) {
+    //   console.log(`Category value: ${categoryMatch[1].trim()}`);
+    // }
 
     return {
       rank: rankMatch ? `#${rankMatch[1].replace(/,/g, "")}` : "", // Store the rank with commas removed
@@ -236,8 +236,6 @@ export const filterComparisonPriceTextFromCamel = (
 
     if (isAverageMatch) {
       const averagePrice = isAverageMatch[0].replace("$", "");
-      console.log("Louis con cac");
-      console.log(averagePrice);
       result = {
         lowestPrice: {
           latestDate: incrementDayByString(match[2]),
@@ -257,7 +255,7 @@ export const filterComparisonPriceTextFromCamel = (
 
     return result;
   } else {
-    console.log("No match found.");
+    console.error("No match comparison price text from camel found.");
     return result;
   }
 };
@@ -272,8 +270,6 @@ export const incrementDayByString = (rawStr: string): string => {
   // Get the incremented day in the format: "MMM DD, YYYY"
   const options: any = { year: "numeric", month: "short", day: "numeric" };
   const incrementedDateString = date.toLocaleDateString("en-US", options);
-
-  console.log(incrementedDateString);
 
   return incrementedDateString;
 };

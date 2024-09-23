@@ -18,10 +18,6 @@ export const retrieveProductPriceHistoryGroup = async (
   await page.goto(`https://camelcamelcamel.com/product/${asin}`, {
     waitUntil: "load",
   });
-  const html = await page.$eval("body", (el) => el.textContent.trim());
-
-  // console.log("HTML Content");
-  // console.log(html);
 
   let htmlContentOfPriceComparisonFromCamel = "";
   let priceComparisonFromCamel: CamelPriceComparison = {
@@ -51,9 +47,6 @@ export const retrieveProductPriceHistoryGroup = async (
       ".table-scroll.camelegend",
       (el) => el.textContent.trim(),
     );
-
-    // console.log("Price comparison data:");
-    // console.log(htmlContentOfPriceComparisonFromCamel);
 
     if (htmlContentOfPriceComparisonFromCamel) {
       priceComparisonFromCamel = filterComparisonPriceTextFromCamel(

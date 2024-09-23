@@ -246,5 +246,22 @@ CREATE INDEX comments_product_id_idx ON comments(product_id);
 
 ALTER TABLE base_products ADD CONSTRAINT unique_asin UNIQUE (asin);
 
+
+CREATE TABLE competitors (
+    id SERIAL PRIMARY KEY,
+    base_product_id INTEGER NOT NULL REFERENCES base_products(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    brand TEXT,
+    url TEXT,
+    average_rating DECIMAL(3, 2) CHECK (average_rating >= 0 AND average_rating <= 5),
+    number_of_reviews INTEGER CHECK (number_of_reviews >= 0),
+    similarity_score DECIMAL(5, 4) CHECK (similarity_score >= 0 AND similarity_score <= 1),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Add index for quick lookup of competitors by base product
+CREATE INDEX idx_competitors_base_product_id ON competitors(base_product_id);
+
 -- supabase gen types typescript --project-id pbrravmvyawomfjjzhde > database.types.ts
 -- TRUNCATE TABLE base_products, comments, category RESTART IDENTITY;
