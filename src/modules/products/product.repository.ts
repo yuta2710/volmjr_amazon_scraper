@@ -76,16 +76,20 @@ export default class AmazonBaseProductRepository {
       return {data: null, error}; 
     }
 
-    console.log("Le xuan loc");
-    console.log(JSON.stringify(queryProducts));
+    // console.log("Le xuan loc");
+    // console.log(JSON.stringify(queryProducts));
     
     const proccessedProducts = queryProducts.map((product) => {
-      const { user_products, ...rest } = product;
+      // const { user_products, price, average_sentiment_analysis, histogram, best_seller_ranks, ...rest } = product;
+      const { user_products, best_seller_ranks, ...rest } = product;
       return {
         ...rest,
+        best_seller_ranks: JSON.stringify(best_seller_ranks),
+        // average_sentiment_analysis: JSON.stringify(average_sentiment_analysis),
+        // price: JSON.stringify(price),
+        // historam: JSON.stringify(histogram),
         userId: product.user_products[0].user_id
       }
-
     })
 
     return { data: proccessedProducts, error };

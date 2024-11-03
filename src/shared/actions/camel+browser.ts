@@ -3,17 +3,20 @@ import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { filterComparisonPriceTextFromCamel } from "./filter";
 import { CamelPriceComparison } from "../types";
 
+// import { connect } from 'puppeteer-real-browser'
 puppeteer.use(StealthPlugin());
 
 export const retrieveProductPriceHistoryGroup = async (
   asin: string,
 ): Promise<CamelPriceComparison> => {
   //instantiate browser
-  const browser = await puppeteer.launch({ headless: true });
-
-  //launch new page
+  const browser = await puppeteer.launch({ headless: false });
   const page = await browser.newPage();
 
+  await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36");
+  await page.setExtraHTTPHeaders({
+    "Accept-Language": "en-US,en;q=0.9",
+  });
   //visit target website
   await page.goto(`https://camelcamelcamel.com/product/${asin}`, {
     waitUntil: "load",

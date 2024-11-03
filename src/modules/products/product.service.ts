@@ -7,6 +7,8 @@ import {
   BaseProductDto,
   BaseProductInsert,
   CommentItem,
+  ExportedBaseProductToExcel,
+  ExportFileRequest,
   ProductCategoriesInsert,
   UserProductInsert,
 } from "../../shared/types";
@@ -21,6 +23,13 @@ import { jsonCamelCase } from "../../shared/actions/to";
 import { renderSuccessComponent } from "../../cores/success";
 import { AmazonBotScraper } from "../../shared/actions/scraper.v2";
 import { Platforms } from "../../shared/constants";
+import { exportFileExcelToDesktop, FileType } from "../../shared/files";
+
+const mockJsonData = [
+  { id: 1, name: "John Doe", age: 30, email: "john@example.com" },
+  { id: 2, name: "Jane Smith", age: 25, email: "jane@example.com" },
+  { id: 3, name: "Alice Johnson", age: 28, email: "alice@example.com" },
+];
 
 export default class BaseProductService {
   private categoryRepository: AmazonCategoryRepository =
@@ -318,16 +327,90 @@ export default class BaseProductService {
       : next(AppError.badRequest("Bad request for query products"));
   };
 
-  // retrieveAndViewOnlyCompetitors = async (
-  //   req: Request,
-  //   res: Response,
-  //   next: NextFunction,
-  // ) => {
-  //   const {keyword, topCompetitorAnalysisLimit} = req.body as AmazonScrapingProductCompetitorRequestOptions;
-  //   const bot = new AmazonBotScraper()
-  //   const data = await this.scrapeRelatedBestSellerRanks(
-  //     this.keyword as string,
-  //     actualCategoryUrl as string,
-  //   );
-  // }
+  exportAllProductsToXlsx = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    console.log("Hello loi");
+    // Access userId and fileType from req.params
+    const userId = req.params.userId;
+    const { fileName, fileType } = req.body as ExportFileRequest
+
+    const allProducts: any = await (
+      await this.productRepository.getAllProductsByUserId(Number(userId))
+    ).data;
+
+    console.log(JSON.parse(JSON.stringify(allProducts)))
+
+    var results: ExportedBaseProductToExcel[] = []
+
+    for(let i = 0; i < allProducts.length; i++) {
+      const preprocessedData: ExportedBaseProductToExcel = {
+        id: allProducts[i]["id"],
+        asin: allProducts[i]["asin"],
+        url: allProducts[i]["url"],
+        image: allProducts[i]["image"],
+        title: allProducts[i]["title"],
+        currentPrice:  allProducts[i]["price"]["amount"],
+        currency: allProducts[i]["price"]["currency"],
+        displayAmount: allProducts[i]["price"]["displayAmount"],
+        originalPrice:  allProducts[i]["price"]["originalPrice"],
+        comparisonLowestPriceLatestDate: allProducts[i]["price"]["priceHistory"]["lowestPrice"]["latestDate"],
+        comparisonLowestPriceValue: allProducts[i]["price"]["priceHistory"]["lowestPrice"]["value"],
+        comparisonHighestPriceLatestDate: allProducts[i]["price"]["priceHistory"]["highestPrice"]["latestDate"],
+        comparisonHighestPriceValue:  allProducts[i]["price"]["priceHistory"]["highestPrice"]["value"],
+        comparisonCurrentPriceLatestDate: allProducts[i]["price"]["priceHistory"]["currentPrice"]["latestDate"],
+        comparisonCurrentPriceValue: allProducts[i]["price"]["priceHistory"]["currentPrice"]["value"] ,
+        averagePrice:  allProducts[i]["price"]["priceHistory"]["averagePrice"],
+        savingAmount: allProducts[i]["price"]["savings"]["amount"],
+        savingPercentage: allProducts[i]["price"]["savings"]["percentage"], 
+        category: allProducts[i]["category"],
+        numberOfComments: allProducts[i]["number_of_comments"],
+        averageRating: allProducts[i]["average_rating"],
+        isOutOfStock: allProducts[i]["is_out_of_stock"],
+        brand: allProducts[i]["brand"],
+        retailer: allProducts[i]["retailer"],
+        bestSellerRanks: allProducts[i]["best_seller_ranks"],
+        isAmazonChoice: allProducts[i]["is_amazon_choice"],
+        isBestSeller: allProducts[i]["is_best_seller"],
+        histogram5Star: allProducts[i]["histogram"]["5 star"],
+        histogram4Star: allProducts[i]["histogram"]["4 star"],
+        histogram3Star: allProducts[i]["histogram"]["3 star"],
+        histogram2Star: allProducts[i]["histogram"]["2 star"],
+        histogram1Star: allProducts[i]["histogram"]["1 star"],
+        deliveryLocation: allProducts[i]["delivery_location"],
+        salesVolumeLastMonth: allProducts[i]["sales_volume_last_month"],
+        averageSentimentScore: allProducts[i]["average_sentiment_analysis"]["score"],
+        averageSentimentEmotion: allProducts[i]["average_sentiment_analysis"]["emotion"],
+        businessTargetForCollecting: allProducts[i]["business_target_for_collecting"],
+        createdAt: allProducts[i]["created_at"],
+        updatedAt: allProducts[i]["updated_at"],
+        userId: Number(userId),
+      }
+      console.log("\nFucking oh year data")
+      console.log(preprocessedData)
+      results.push(preprocessedData)
+    }
+    
+    // const json = JSON.parse(JSON.stringify(results))
+
+    const isExported: boolean = exportFileExcelToDesktop(
+      results,
+      `${fileName}.${fileType}`,
+      // authId
+    );
+
+    if (isExported) {
+      return res.status(200).json({
+        success: true,
+        message: "Exported successfully on the desktop",
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Unable to export on the desktop",
+      });
+    }
+  };
 }

@@ -17,7 +17,6 @@ import {
 import { CategoryNode } from "@/modules/category/category.model";
 import {
   filterAsinFromUrl,
-  filterBestKeywordToJson,
   filterBestSellerRanks,
   filterCategoryAsListByHtml,
   filterComponentsOfPrice,
@@ -42,6 +41,7 @@ import _ from "lodash";
 import { jsonCamelCase } from "./to";
 import { viewCompetitorProductAnalysis } from "../log";
 
+// Bot Scraper Raw Design
 export abstract class BotScraper {
   protected platform: Platforms;
 
@@ -55,6 +55,20 @@ export abstract class BotScraper {
   public abstract getCurrentPlatform(): Platforms;
 }
 
+export class WalmartBotScraper extends BotScraper {
+  public activateBot(): Promise<Browser> {
+    throw new Error("Method not implemented.");
+  }
+  public scraperData(): Promise<any> {
+    throw new Error("Method not implemented.");
+  }
+  public getCurrentPlatform(): Platforms {
+    throw new Error("Method not implemented.");
+  }
+
+}
+
+// Amazon Bot Scraper Design
 export class AmazonBotScraper extends BotScraper {
   private page: Page;
   private isRetrieveCompetitors: boolean;
@@ -99,7 +113,9 @@ export class AmazonBotScraper extends BotScraper {
 
   async scraperData(): Promise<AmazonScrapedResponse> {
     if (!this.url) return;
+
     const browser: Browser = await this.activateBot();
+
     await this.normalCaptchSolver.execute(this.page);
 
     // Attempt sign-in with retries
@@ -147,7 +163,7 @@ export class AmazonBotScraper extends BotScraper {
           JSON.stringify(categoryHierarchy),
         );
       } else {
-        console.warn("No categories found in the selector list.");
+        console.log(colors.yellow("No categories found in the selector list."));
       }
     } catch (error) {
       console.error("Category not found on browser:", error);
@@ -166,8 +182,8 @@ export class AmazonBotScraper extends BotScraper {
     }
 
     let competitorsData: CompetitorResponse[] = [];
-    //exact-aware-popularity-rank
     let actualCategoryUrl: string = "";
+
     // Scraping retrieve competitors steps
     if (this.isRetrieveCompetitors) {
       try {
@@ -177,7 +193,6 @@ export class AmazonBotScraper extends BotScraper {
             timeout: MAXIMUM_TIMEOUT_FOR_SCRAPING
           }
         )
-
         actualCategoryUrl = await this.page.$eval(
           "#wayfinding-breadcrumbs_feature_div ul li:last-child span a",
           (el) => el.getAttribute("href"),
@@ -186,15 +201,13 @@ export class AmazonBotScraper extends BotScraper {
         console.error("Actual url of UI 1 not found")
       }
 
-      console.log("Starting scrape related competitors");
+      console.log(colors.bgYellow("Starting scrape related competitors"));
 
       competitorsData = await this.scrapeRelatedBestSellerRanks(
         this.keyword as string,
         actualCategoryUrl as string,
       );
     }
-
-    // await new Promise((resolve) => setTimeout(resolve, 2000));
 
     let reviewButton = null;
 
@@ -205,18 +218,18 @@ export class AmazonBotScraper extends BotScraper {
           timeout: MAXIMUM_TIMEOUT_FOR_SCRAPING,
         },
       );
-      // reviewButton =
 
       if (reviewButton) {
         try {
           await reviewButton.click();
+
           await this.page.waitForNavigation({
             waitUntil: "domcontentloaded",
             timeout: MAXIMUM_TIMEOUT_FOR_SCRAPING,
           });
 
           const comment_url = `${this.page.url()}&sortBy=recent&pageNumber=1`;
-          console.log(colors.cyan("After navigate = "), comment_url);
+          // console.log(colors.cyan("After navigate = "), comment_url);
 
           // Implement retry mechanism for page navigation
           let retries = 10;
@@ -236,8 +249,7 @@ export class AmazonBotScraper extends BotScraper {
 
               success = true; // If navigation and element detection succeed, break out of the loop
               console.log(colors.green("Success retry"));
-              // await this.page.reload()
-              // await new Promise((resolve) => setTimeout(resolve, 2000)); // Add a small delay between retries
+
             } catch (error) {
               console.error(
                 `Navigation to ${comment_url} failed: ${
@@ -308,7 +320,6 @@ export class AmazonBotScraper extends BotScraper {
               ? flattenedCategoryHierarchy
               : null,
             competitors: competitorsData,
-            // competitors: []
           } as AmazonScrapedResponse;
         } catch (error) {
           console.error("Error in scrapeAmazonProduct");
@@ -328,6 +339,7 @@ export class AmazonBotScraper extends BotScraper {
           category: flattenedCategoryHierarchy
             ? flattenedCategoryHierarchy
             : null,
+          competitors: []
         } as AmazonScrapedResponse;
       }
     } catch (error) {
@@ -337,6 +349,7 @@ export class AmazonBotScraper extends BotScraper {
         category: flattenedCategoryHierarchy
           ? flattenedCategoryHierarchy
           : null,
+        competitors: []
       } as AmazonScrapedResponse;
     }
   }
@@ -1076,7 +1089,7 @@ export class AmazonBotScraper extends BotScraper {
     // Extract competitor products on the current page
     let listOfCompetitorProducts: ElementHandle[] = [];
 
-    //TODO: UI 1
+    //TODO: UI of List Of Competitor 1
     try {
       await page.waitForSelector(
         ".sg-col-20-of-24.s-result-item.s-asin.sg-col-0-of-12.sg-col-16-of-20.sg-col.s-widget-spacing-small.gsx-ies-anchor.sg-col-12-of-16",
@@ -1107,7 +1120,7 @@ export class AmazonBotScraper extends BotScraper {
       console.error("Unable to find the column style of products");
     }
 
-    //TODO: UI 2
+    //TODO: UI of List Of Competitor 2
     try {
       await page.waitForSelector(
         "span[data-component-type='s-search-results'] div[data-component-type='s-search-result']",
@@ -1139,7 +1152,7 @@ export class AmazonBotScraper extends BotScraper {
       console.error("Unable to find the grid of products");
     }
 
-    //TODO: UI 3
+    //TODO: UI of List Of Competitor 3
     try {
       await page.waitForSelector(".p13n-gridRow._cDEzb_grid-row_3Cywl", {
         timeout: MAXIMUM_TIMEOUT_FOR_SCRAPING,

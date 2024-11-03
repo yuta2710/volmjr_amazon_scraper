@@ -17,6 +17,53 @@ export type PriceHistoryItem = {
   price: number;
 };
 
+export type ExportedBaseProductToExcel =   {
+  id?: number;
+  asin?: string;
+  url?: string;
+  image?: string;
+  title?: string;
+  currentPrice?: number | 0;
+  currency?: string | "$";
+  displayAmount?: string | "";
+  originalPrice?: number | 0;
+
+  comparisonLowestPriceLatestDate?: string;
+  comparisonLowestPriceValue?: number | 0;
+
+  comparisonHighestPriceLatestDate?: string;
+  comparisonHighestPriceValue?: number | 0;
+
+  comparisonCurrentPriceLatestDate?: string;
+  comparisonCurrentPriceValue?: number | 0;
+
+  averagePrice?: number | 0;
+  savingAmount?: number | 0
+  savingPercentage?: string | ""
+  category?: string;
+  numberOfComments?: number;
+  averageRating?: number;
+  isOutOfStock?: boolean;
+  brand?: string;
+  retailer?: string | "Not show";
+  bestSellerRanks?: BestSellerRank[];
+  isAmazonChoice?: boolean;
+  isBestSeller?: boolean;
+  histogram5Star?: string;
+  histogram4Star?: string;
+  histogram3Star?: string;
+  histogram2Star?: string;
+  histogram1Star?: string;
+  deliveryLocation?: string;
+  salesVolumeLastMonth?: string | "Not show";
+  averageSentimentScore?: number;
+  averageSentimentEmotion?: string;
+  businessTargetForCollecting?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  userId?: number; // foreign key
+} | null;
+
 export type BaseProduct = {
   id?: number;
   asin?: string;
@@ -167,7 +214,7 @@ export type CamelPriceComparison = {
   highestPrice?: {
     latestDate: string;
     value: number | 0;
-  };
+};
   currentPrice?: {
     latestDate: string;
     value: number | 0;
@@ -243,4 +290,9 @@ export type AmazonScrapingProductCompetitorRequestOptions = {
 export type HeadlessBrowserOptions = {
   headless: boolean,
   args?: string[],
+}
+
+export type ExportFileRequest = {
+  fileName: string;
+  fileType: string 
 }
