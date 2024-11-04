@@ -7,6 +7,7 @@ import { Database } from "../../shared/types/database.types";
 import { BaseProductInsert } from "../../shared/types";
 import { BaseProduct } from "../../shared/types";
 import { GET_PRODUCTS_BY_USER_ID_QUERY } from "../../shared/actions/queries/product.query";
+import { jsonCamelCase } from "../../shared/actions/to";
 
 export default class AmazonBaseProductRepository {
   private db: SupabaseClient<Database>;
@@ -44,12 +45,10 @@ export default class AmazonBaseProductRepository {
             onConflict: "asin",
           })
           .select();
-        
-          
+
         if (error) {
           console.error("Error inserting product:", error.message);
         } else {
-          // console.info("Product inserted successfully:", data);
           return data[0].id;
         }
       }
@@ -60,7 +59,6 @@ export default class AmazonBaseProductRepository {
   }
 
   async getAllProductsByUserId(userId: number) {
-    console.log("User id in this function: ", userId)
     const { data: queryProducts, error } = await this.db
       .from("base_products")
       .select(
@@ -73,24 +71,18 @@ export default class AmazonBaseProductRepository {
 
     if (error) {
       console.error("Error fetching products:", error);
-      return {data: null, error}; 
+      return { data: null, error };
     }
 
-    // console.log("Le xuan loc");
-    // console.log(JSON.stringify(queryProducts));
-    
-    const proccessedProducts = queryProducts.map((product) => {
-      // const { user_products, price, average_sentiment_analysis, histogram, best_seller_ranks, ...rest } = product;
-      const { user_products, best_seller_ranks, ...rest } = product;
+    var productsJson = jsonCamelCase(queryProducts);
+    const proccessedProducts = productsJson.map((product: BaseProduct) => {
+      const { bestSellerRanks, ...rest } = product;
       return {
         ...rest,
-        best_seller_ranks: JSON.stringify(best_seller_ranks),
-        // average_sentiment_analysis: JSON.stringify(average_sentiment_analysis),
-        // price: JSON.stringify(price),
-        // historam: JSON.stringify(histogram),
-        userId: product.user_products[0].user_id
-      }
-    })
+        bestSellerRanks: JSON.stringify(bestSellerRanks),
+        userId: userId,
+      };
+    });
 
     return { data: proccessedProducts, error };
   }

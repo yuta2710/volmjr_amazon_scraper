@@ -212,7 +212,6 @@ export default class BaseProductService {
     //   );
     //   return next(AppError.badRequest("Unable to insert PC conjunction table"));
     // }
-
     renderSuccessComponent(res, scrapedDataResponse);
   };
 
@@ -332,7 +331,6 @@ export default class BaseProductService {
     res: Response,
     next: NextFunction,
   ) => {
-    console.log("Hello loi");
     // Access userId and fileType from req.params
     const userId = req.params.userId;
     const { fileName, fileType } = req.body as ExportFileRequest
@@ -346,7 +344,23 @@ export default class BaseProductService {
     var results: ExportedBaseProductToExcel[] = []
 
     for(let i = 0; i < allProducts.length; i++) {
-      const preprocessedData: ExportedBaseProductToExcel = {
+      const childrenCat: any =
+      await this.categoryRepository.getChildrenOfCurrentCategory(
+        allProducts[i]["category"] as number,
+      );
+
+      let categoryStrBuilder = ""
+
+      for (let j = 0; j < childrenCat.length; j++) {
+        if (j === childrenCat.length - 1) {
+          categoryStrBuilder += childrenCat[j]["name"]
+        }
+        else {
+          categoryStrBuilder += childrenCat[j]["name"] + " --> "
+        }
+      }
+  
+      const preprocessedDataToExcel: ExportedBaseProductToExcel = {
         id: allProducts[i]["id"],
         asin: allProducts[i]["asin"],
         url: allProducts[i]["url"],
@@ -356,49 +370,46 @@ export default class BaseProductService {
         currency: allProducts[i]["price"]["currency"],
         displayAmount: allProducts[i]["price"]["displayAmount"],
         originalPrice:  allProducts[i]["price"]["originalPrice"],
-        comparisonLowestPriceLatestDate: allProducts[i]["price"]["priceHistory"]["lowestPrice"]["latestDate"],
-        comparisonLowestPriceValue: allProducts[i]["price"]["priceHistory"]["lowestPrice"]["value"],
-        comparisonHighestPriceLatestDate: allProducts[i]["price"]["priceHistory"]["highestPrice"]["latestDate"],
-        comparisonHighestPriceValue:  allProducts[i]["price"]["priceHistory"]["highestPrice"]["value"],
-        comparisonCurrentPriceLatestDate: allProducts[i]["price"]["priceHistory"]["currentPrice"]["latestDate"],
-        comparisonCurrentPriceValue: allProducts[i]["price"]["priceHistory"]["currentPrice"]["value"] ,
+        lowestPriceValue: allProducts[i]["price"]["priceHistory"]["lowestPrice"]["value"],
+        highestPriceValue:  allProducts[i]["price"]["priceHistory"]["highestPrice"]["value"],
+        currentPriceValueInCamel: allProducts[i]["price"]["priceHistory"]["currentPrice"]["value"] ,
         averagePrice:  allProducts[i]["price"]["priceHistory"]["averagePrice"],
         savingAmount: allProducts[i]["price"]["savings"]["amount"],
         savingPercentage: allProducts[i]["price"]["savings"]["percentage"], 
-        category: allProducts[i]["category"],
-        numberOfComments: allProducts[i]["number_of_comments"],
-        averageRating: allProducts[i]["average_rating"],
-        isOutOfStock: allProducts[i]["is_out_of_stock"],
+        category: categoryStrBuilder,
+        numberOfComments: allProducts[i]["numberOfComments"],
+        averageRating: allProducts[i]["averageRating"],
+        isOutOfStock: allProducts[i]["isOutOfStock"],
         brand: allProducts[i]["brand"],
         retailer: allProducts[i]["retailer"],
-        bestSellerRanks: allProducts[i]["best_seller_ranks"],
-        isAmazonChoice: allProducts[i]["is_amazon_choice"],
-        isBestSeller: allProducts[i]["is_best_seller"],
+        bestSellerRanks: allProducts[i]["bestSellerRanks"],
+        isAmazonChoice: allProducts[i]["isAmazonChoice"],
+        isBestSeller: allProducts[i]["isBestSeller"],
         histogram5Star: allProducts[i]["histogram"]["5 star"],
         histogram4Star: allProducts[i]["histogram"]["4 star"],
         histogram3Star: allProducts[i]["histogram"]["3 star"],
         histogram2Star: allProducts[i]["histogram"]["2 star"],
         histogram1Star: allProducts[i]["histogram"]["1 star"],
-        deliveryLocation: allProducts[i]["delivery_location"],
-        salesVolumeLastMonth: allProducts[i]["sales_volume_last_month"],
-        averageSentimentScore: allProducts[i]["average_sentiment_analysis"]["score"],
-        averageSentimentEmotion: allProducts[i]["average_sentiment_analysis"]["emotion"],
-        businessTargetForCollecting: allProducts[i]["business_target_for_collecting"],
-        createdAt: allProducts[i]["created_at"],
-        updatedAt: allProducts[i]["updated_at"],
-        userId: Number(userId),
+        deliveryLocation: allProducts[i]["deliveryLocation"],
+        salesVolumeLastMonth: allProducts[i]["salesVolumeLastMonth"],
+        averageSentimentScore: allProducts[i]["averageSentimentAnalysis"]["score"],
+        averageSentimentEmotion: allProducts[i]["averageSentimentAnalysis"]["emotion"],
+        businessTargetForCollecting: allProducts[i]["businessTargetForCollecting"],
+        lowestPriceLatestDate: allProducts[i]["price"]["priceHistory"]["lowestPrice"]["latestDate"],
+        currentPriceLatestDate: allProducts[i]["price"]["priceHistory"]["currentPrice"]["latestDate"],
+        highestPriceLatestDate: allProducts[i]["price"]["priceHistory"]["highestPrice"]["latestDate"],
+        createdAt: allProducts[i]["createdAt"],
+        updatedAt: allProducts[i]["updatedAt"],
+        email: req.user.email,
       }
-      console.log("\nFucking oh year data")
-      console.log(preprocessedData)
-      results.push(preprocessedData)
+      results.push(preprocessedDataToExcel)
     }
-    
-    // const json = JSON.parse(JSON.stringify(results))
+
+    const authId = jsonCamelCase(req.user).authId
 
     const isExported: boolean = exportFileExcelToDesktop(
       results,
-      `${fileName}.${fileType}`,
-      // authId
+      `${authId}.${fileType}`
     );
 
     if (isExported) {

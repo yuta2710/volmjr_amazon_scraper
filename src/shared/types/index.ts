@@ -23,20 +23,13 @@ export type ExportedBaseProductToExcel =   {
   url?: string;
   image?: string;
   title?: string;
-  currentPrice?: number | 0;
   currency?: string | "$";
   displayAmount?: string | "";
   originalPrice?: number | 0;
-
-  comparisonLowestPriceLatestDate?: string;
-  comparisonLowestPriceValue?: number | 0;
-
-  comparisonHighestPriceLatestDate?: string;
-  comparisonHighestPriceValue?: number | 0;
-
-  comparisonCurrentPriceLatestDate?: string;
-  comparisonCurrentPriceValue?: number | 0;
-
+  lowestPriceValue?: number | 0;
+  highestPriceValue?: number | 0;
+  currentPrice?: number | 0;
+  currentPriceValueInCamel?: number | 0;
   averagePrice?: number | 0;
   savingAmount?: number | 0
   savingPercentage?: string | ""
@@ -59,9 +52,12 @@ export type ExportedBaseProductToExcel =   {
   averageSentimentScore?: number;
   averageSentimentEmotion?: string;
   businessTargetForCollecting?: string;
+  lowestPriceLatestDate?: string;
+  highestPriceLatestDate?: string;
+  currentPriceLatestDate?: string;
   createdAt?: Date;
   updatedAt?: Date;
-  userId?: number; // foreign key
+  email?: string; // email
 } | null;
 
 export type BaseProduct = {

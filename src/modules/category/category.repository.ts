@@ -77,8 +77,8 @@ export default class AmazonCategoryRepository {
       {category_id: currentId}
     );
 
-    console.log("Category child data");
-    console.log(data);
+    // console.log("Category child data");
+    // console.log(data);
 
     return !error && data;
   }
