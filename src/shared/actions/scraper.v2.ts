@@ -65,7 +65,6 @@ export class WalmartBotScraper extends BotScraper {
   public getCurrentPlatform(): Platforms {
     throw new Error("Method not implemented.");
   }
-
 }
 
 // Amazon Bot Scraper Design
@@ -187,18 +186,15 @@ export class AmazonBotScraper extends BotScraper {
     // Scraping retrieve competitors steps
     if (this.isRetrieveCompetitors) {
       try {
-        await this.page.waitForSelector(
-          "#wayfinding-breadcrumbs_feature_div",
-          {
-            timeout: MAXIMUM_TIMEOUT_FOR_SCRAPING
-          }
-        )
+        await this.page.waitForSelector("#wayfinding-breadcrumbs_feature_div", {
+          timeout: MAXIMUM_TIMEOUT_FOR_SCRAPING,
+        });
         actualCategoryUrl = await this.page.$eval(
           "#wayfinding-breadcrumbs_feature_div ul li:last-child span a",
           (el) => el.getAttribute("href"),
         );
       } catch (error) {
-        console.error("Actual url of UI 1 not found")
+        console.error("Actual url of UI 1 not found");
       }
 
       console.log(colors.bgYellow("Starting scrape related competitors"));
@@ -249,7 +245,6 @@ export class AmazonBotScraper extends BotScraper {
 
               success = true; // If navigation and element detection succeed, break out of the loop
               console.log(colors.green("Success retry"));
-
             } catch (error) {
               console.error(
                 `Navigation to ${comment_url} failed: ${
@@ -269,7 +264,7 @@ export class AmazonBotScraper extends BotScraper {
           /**
            * TODO: ============================================================= Steps to scrape the comments ============================================================= */
           const collectedComments: CommentItem[] =
-            await this.scrapeCommentsRecursively(this.page);
+            await this.scrapeCommentsRecursively(this.page, []);
           console.log(
             colors.green(
               `Total of the collected comments: ${collectedComments.length}`,
@@ -339,7 +334,7 @@ export class AmazonBotScraper extends BotScraper {
           category: flattenedCategoryHierarchy
             ? flattenedCategoryHierarchy
             : null,
-          competitors: []
+          competitors: [],
         } as AmazonScrapedResponse;
       }
     } catch (error) {
@@ -349,7 +344,7 @@ export class AmazonBotScraper extends BotScraper {
         category: flattenedCategoryHierarchy
           ? flattenedCategoryHierarchy
           : null,
-        competitors: []
+        competitors: [],
       } as AmazonScrapedResponse;
     }
   }
@@ -736,7 +731,7 @@ export class AmazonBotScraper extends BotScraper {
    */
   async scrapeCommentsRecursively(
     page: Page,
-    collectedComments: CommentItem[] = [],
+    collectedComments: CommentItem[],
   ): Promise<CommentItem[]> {
     // await page.reload();
     const queryCommentPrimaryContainer = await page.$(
@@ -873,9 +868,9 @@ export class AmazonBotScraper extends BotScraper {
         console.log("Current url of comment not found");
       }
 
-      console.log(
-        `The filtrated description after translated ${filtratedDescription}`,
-      );
+      // console.log(
+      //   `The filtrated description after translated ${filtratedDescription}`,
+      // );
       commentItem = {
         rating: filtratedRating,
         title: filtratedTitle,
@@ -949,31 +944,34 @@ export class AmazonBotScraper extends BotScraper {
             metric: nextPageMetric,
           };
         }
-        const currentPage = filterQueryType(String(page.url()))[
-          "pageNumber"
-        ] as number;
+        const currentPage = filterQueryType(String(page.url()));
 
-        collectedComments = collectedComments.map((comment: CommentItem) => ({
+        console.log(
+          `Current page = ${filterQueryType(String(page.url())).pageNumber}`,
+        );
+
+        var updatedCollectedComments = collectedComments.map((comment: CommentItem) => ({
           ...comment,
           pagination: {
             totalRecords: queryListOfComments.length,
-            currentPage,
-            nextPage:
-              nextPage.url && nextPage.metric
-                ? nextPage
-                : { url: "", metric: 1 },
-            prevPage:
-              prevPage.url && prevPage.metric
-                ? prevPage
-                : { url: "", metric: 1 },
+            currentPage: currentPage.pageNumber,
+            nextPage: nextPage,
+            prevPage: prevPage,
           },
         }));
+
+        // console.log("Collected comments updated")
+        // var i = 1 
+        // for (let com of collectedComments) {
+        //   console.log(JSON.parse(JSON.stringify(com.pagination)))
+        //   // console.log(com.pagination.totalRecords)
+        // }
 
         if (nextPage.url) {
           await page.goto(nextPage.url);
 
           // Recursive call to scrape the next page
-          return this.scrapeCommentsRecursively(page, collectedComments);
+          return this.scrapeCommentsRecursively(page, updatedCollectedComments);
         } else {
           // No more pages, return collected comments
           return collectedComments;
@@ -1001,7 +999,7 @@ export class AmazonBotScraper extends BotScraper {
     competitors: CompetitorResponse[] = [],
     // top5MatchThresholdParams: number = 0,
   ): Promise<CompetitorResponse[]> {
-    console.log("Main URL = ", url);
+    // console.log("Main URL = ", url);
 
     const browser = await puppeteer.launch(
       HEADLESS_STATE_MANAGEMENT.PRODUCTION_MODE,
@@ -1037,18 +1035,15 @@ export class AmazonBotScraper extends BotScraper {
 
     // TODO: UI Best Seller Url 2
     try {
-      await newPage.waitForSelector(
-        `select#s-result-sort-select`,
-        {
-          timeout: MAXIMUM_TIMEOUT_FOR_SCRAPING,
-        },
-      );
+      await newPage.waitForSelector(`select#s-result-sort-select`, {
+        timeout: MAXIMUM_TIMEOUT_FOR_SCRAPING,
+      });
       bestSellerUrl = await newPage.$eval(
         `select#s-result-sort-select option[value='exact-aware-popularity-rank']`,
         (el) => el.getAttribute("data-url"),
       );
 
-      console.log("Oh, found best seller URL = " + bestSellerUrl);
+      // console.log("Oh, found best seller URL = " + bestSellerUrl);
     } catch (error) {
       console.error("Best seller url 2 not found");
     }
@@ -1100,7 +1095,7 @@ export class AmazonBotScraper extends BotScraper {
       listOfCompetitorProducts = await page.$$(
         ".sg-col-20-of-24.s-result-item.s-asin.sg-col-0-of-12.sg-col-16-of-20.sg-col.s-widget-spacing-small.gsx-ies-anchor.sg-col-12-of-16",
       );
-      console.log(colors.green("UI 1 Founded"));
+      // console.log(colors.green("UI 1 Founded"));
 
       // Fetch all of href data from different UI of best seller page
       for (let i = 0; i < listOfCompetitorProducts.length; i++) {
@@ -1132,7 +1127,7 @@ export class AmazonBotScraper extends BotScraper {
         "span[data-component-type='s-search-results'] div[data-component-type='s-search-result']",
       );
 
-      console.log(colors.green("UI 2 Founded"));
+      // console.log(colors.green("UI 2 Founded"));
 
       // Fetch all of href data from different UI of best seller page
       for (let i = 0; i < listOfCompetitorProducts.length; i++) {
@@ -1161,7 +1156,7 @@ export class AmazonBotScraper extends BotScraper {
         ".p13n-gridRow._cDEzb_grid-row_3Cywl #gridItemRoot",
       );
 
-      console.log(colors.green("UI 3 Founded"));
+      // console.log(colors.green("UI 3 Founded"));
 
       // Fetch all of href data from different UI of best seller page
       for (let i = 0; i < listOfCompetitorProducts.length; i++) {
@@ -1182,10 +1177,7 @@ export class AmazonBotScraper extends BotScraper {
 
     //TODO: UI 4
     try {
-      
-    } catch (error) {
-      
-    }
+    } catch (error) {}
 
     // Start to collect data of competitor product details
     for (let i = 0; i < formattedUrls.length; i++) {
@@ -1335,9 +1327,9 @@ export class AmazonBotScraper extends BotScraper {
           competitors.push(matchedCompetitorProductDecoder);
           ++top5MatchThreshold;
 
-          console.log(
-            colors.blue(`Added product ${i + 1} to the competitor list`),
-          );
+          // console.log(
+          //   colors.blue(`Added product ${i + 1} to the competitor list`),
+          // );
         }
         await detailsPage.close();
       } catch (error) {

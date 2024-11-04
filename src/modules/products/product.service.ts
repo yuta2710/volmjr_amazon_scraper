@@ -169,6 +169,10 @@ export default class BaseProductService {
          * TODO: Check condition exist of comments
          */
       }
+
+      // console.log("\n\n\n\nData scraped of comment")
+      // console.log(scrapedDataResponse.comments)
+
       if (scrapedDataResponse.comments.length > 0) {
         const scrapedCommentsFromBrowser =
           scrapedDataResponse.comments as CommentItem[];
@@ -318,8 +322,8 @@ export default class BaseProductService {
       productDtos.push(resultDto);
     }
 
-    console.log("Cardi B DTO");
-    console.log(productDtos);
+    // console.log("Cardi B DTO");
+    // console.log(productDtos);
 
     queryResults.data
       ? renderSuccessComponent(res, productDtos as [])
@@ -339,7 +343,7 @@ export default class BaseProductService {
       await this.productRepository.getAllProductsByUserId(Number(userId))
     ).data;
 
-    console.log(JSON.parse(JSON.stringify(allProducts)))
+    // console.log(JSON.parse(JSON.stringify(allProducts)))
 
     var results: ExportedBaseProductToExcel[] = []
 

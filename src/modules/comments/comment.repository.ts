@@ -1,7 +1,8 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import {supabase} from "../../shared/supabase";
-import { BaseCommentInsert, CommentItem } from "../../shared/types";
+import { BaseCommentInsert, BaseQueryResponse, CommentItem } from "../../shared/types";
 import { Database } from "@/shared/types/database.types";
+import { jsonCamelCase } from "@/shared/actions/to";
 
 export default class CommentRepository {
   private commentRepository: SupabaseClient<Database>;
@@ -19,6 +20,21 @@ export default class CommentRepository {
       supabaseAnonKey,
     );
   }
+
+  async getAllCommentsByProductId(productId: number) {
+    const { data: existingBulkCommentsFromDatabase, error: fetchError } = await this.commentRepository.from("comments").select("*").eq("product_id", productId)
+    if (fetchError) {
+      console.error("Error fetching existing comments:", fetchError.message);
+    } else {
+      console.log(
+        "There is an existing list of comments:",
+        existingBulkCommentsFromDatabase.length,
+      );
+    }
+
+    return { data: existingBulkCommentsFromDatabase, error: fetchError } as BaseQueryResponse
+  }
+
   async insertBatch(items: CommentItem[], productId: number) {
     const { data: existingBulkCommentsFromDatabase, error: fetchError } =
       await this.commentRepository
@@ -62,7 +78,7 @@ export default class CommentRepository {
         product_id: productId, // Adjust according to your schema
         helpful_count: comment.helpfulCount,
         rating: comment.rating,
-        verified_purchase: comment.isVerifiedPurchase,
+        is_verified_purchase: comment.isVerifiedPurchase,
         location: comment.location,
         url: comment.url,
         sentiment: comment.sentiment, // Assuming sentiment is correctly formatted as JSON

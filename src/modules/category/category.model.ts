@@ -37,6 +37,7 @@ export class CategoryNode {
   }
 }
 
+// Category Helper function 
 export class CategoryHelper {
   buildCategoryHierarchy(
     categories: string[],

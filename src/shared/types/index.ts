@@ -13,6 +13,11 @@ export declare type ProductCategoriesInsert =
 
 export type TypedSupabaseClient = SupabaseClient<Database>;
 
+export type BaseQueryResponse = {
+  data?: any 
+  error?: any 
+}
+
 export type PriceHistoryItem = {
   price: number;
 };
@@ -177,6 +182,26 @@ export type CommentItem = {
       metric?: number;
     };
   };
+};
+
+export type ExportedCommentItemToExcel = {
+  title?: string;
+  content?: string;
+  product_id?: number;
+  helpful_count?: string;
+  rating?: string;
+  is_verified_purchase?: boolean;
+  location?: string;
+  url?: string;
+  sentiment_score?: number;
+  sentiment_emotion?: string;
+  total_records_in_current_page?: number;
+  current_page?: number;
+  next_page_url?: string;
+  next_page_value?: number;
+  prev_page_url?: string;
+  prev_page_value?: number;
+  date?: string;
 };
 
 export type ProductHistogram = {

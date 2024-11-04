@@ -192,7 +192,7 @@ CREATE TABLE comments (
     -- Helpful count, rating, verified purchase, location, and URL fields
     helpful_count TEXT NOT NULL,
     rating TEXT NOT NULL,
-    verified_purchase BOOLEAN NOT NULL,
+    is_verified_purchase BOOLEAN NOT NULL,
     location TEXT NOT NULL,
     url TEXT NOT NULL,
     

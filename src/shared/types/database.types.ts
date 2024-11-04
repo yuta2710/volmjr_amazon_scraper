@@ -130,6 +130,7 @@ export type Database = {
           date: string
           helpful_count: string
           id: number
+          is_verified_purchase: boolean
           location: string
           pagination: Json | null
           product_id: number | null
@@ -138,13 +139,13 @@ export type Database = {
           title: string
           url: string
           user_id: number | null
-          verified_purchase: boolean
         }
         Insert: {
           content: string
           date: string
           helpful_count: string
           id?: number
+          is_verified_purchase: boolean
           location: string
           pagination?: Json | null
           product_id?: number | null
@@ -153,13 +154,13 @@ export type Database = {
           title: string
           url: string
           user_id?: number | null
-          verified_purchase: boolean
         }
         Update: {
           content?: string
           date?: string
           helpful_count?: string
           id?: number
+          is_verified_purchase?: boolean
           location?: string
           pagination?: Json | null
           product_id?: number | null
@@ -168,7 +169,6 @@ export type Database = {
           title?: string
           url?: string
           user_id?: number | null
-          verified_purchase?: boolean
         }
         Relationships: [
           {
@@ -186,6 +186,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      competitors: {
+        Row: {
+          average_rating: number | null
+          base_product_id: number
+          brand: string | null
+          created_at: string
+          id: number
+          number_of_reviews: number | null
+          similarity_score: number | null
+          title: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          average_rating?: number | null
+          base_product_id: number
+          brand?: string | null
+          created_at?: string
+          id?: number
+          number_of_reviews?: number | null
+          similarity_score?: number | null
+          title: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          average_rating?: number | null
+          base_product_id?: number
+          brand?: string | null
+          created_at?: string
+          id?: number
+          number_of_reviews?: number | null
+          similarity_score?: number | null
+          title?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
       }
       product_categories: {
         Row: {
@@ -278,15 +317,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "user_profiles_auth_id_fkey"
-            columns: ["auth_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {
@@ -401,4 +432,19 @@ export type Enums<
   ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
     ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof PublicSchema["CompositeTypes"]
+    | { schema: keyof Database },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
+    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
