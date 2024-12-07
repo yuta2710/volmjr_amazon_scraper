@@ -57,7 +57,6 @@ export default class BaseProductService {
   ): Promise<void> => {
     const { url, isRetrieveCompetitors, competitorRetrieverOptions } =
       req.body as AmazonScrapingProductRequest;
-
     let bot;
 
     if (isRetrieveCompetitors) {
