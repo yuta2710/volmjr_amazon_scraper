@@ -868,9 +868,6 @@ export class AmazonBotScraper extends BotScraper {
         console.log("Current url of comment not found");
       }
 
-      // console.log(
-      //   `The filtrated description after translated ${filtratedDescription}`,
-      // );
       commentItem = {
         rating: filtratedRating,
         title: filtratedTitle,

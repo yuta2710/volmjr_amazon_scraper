@@ -23,7 +23,7 @@ export const retrieveProductPriceHistoryGroup = async (
   });
 
   const [page] = await browser.pages();
-  const preloadFile = readFileSync(path.join(__dirname, "../../scripts/inject.js"), "utf8");
+  const preloadFile = readFileSync(path.join(__dirname, "./inject.js"), "utf8");
   await page.evaluateOnNewDocument(preloadFile);
   // const browser = await puppeteer.launch({ headless: false });
   // const page = await browser.newPage();
