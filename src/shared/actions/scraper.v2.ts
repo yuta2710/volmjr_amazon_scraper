@@ -261,10 +261,12 @@ export class AmazonBotScraper extends BotScraper {
             }
           }
 
+
+          console.log("\nAsin scraped = ", scrapedProduct.asin)
           /**
            * TODO: ============================================================= Steps to scrape the comments ============================================================= */
           const collectedComments: CommentItem[] =
-            await this.scrapeCommentsRecursively(this.page, []);
+            await this.scrapeCommentsRecursively(this.page, scrapedProduct.asin as string, []);
           console.log(
             colors.green(
               `Total of the collected comments: ${collectedComments.length}`,
@@ -731,9 +733,11 @@ export class AmazonBotScraper extends BotScraper {
    */
   async scrapeCommentsRecursively(
     page: Page,
+    asin: string,
     collectedComments: CommentItem[],
   ): Promise<CommentItem[]> {
     // await page.reload();
+    console.log("Asin in the recursive function ", asin)
     const queryCommentPrimaryContainer = await page.$(
       ".a-section.a-spacing-none.reviews-content.a-size-base",
     );
@@ -877,6 +881,7 @@ export class AmazonBotScraper extends BotScraper {
         location: filtratedLocation,
         date: filtratedDate,
         url: currentUrlOfComment,
+        asin,
         sentiment: {
           score: averageSentimentScore,
           emotion: averageSentimentEmotion,
@@ -968,7 +973,7 @@ export class AmazonBotScraper extends BotScraper {
           await page.goto(nextPage.url);
 
           // Recursive call to scrape the next page
-          return this.scrapeCommentsRecursively(page, updatedCollectedComments);
+          return this.scrapeCommentsRecursively(page, asin, updatedCollectedComments);
         } else {
           // No more pages, return collected comments
           return collectedComments;

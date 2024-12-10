@@ -76,6 +76,7 @@ export default class CommentRepository {
         content: comment.content,
         date: comment.date,
         product_id: productId, // Adjust according to your schema
+        asin: comment.asin,
         helpful_count: comment.helpfulCount,
         rating: comment.rating,
         is_verified_purchase: comment.isVerifiedPurchase,

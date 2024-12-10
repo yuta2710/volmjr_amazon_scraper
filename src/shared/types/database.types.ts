@@ -126,6 +126,7 @@ export type Database = {
       }
       comments: {
         Row: {
+          asin: string
           content: string
           date: string
           helpful_count: string
@@ -141,6 +142,7 @@ export type Database = {
           user_id: number | null
         }
         Insert: {
+          asin: string
           content: string
           date: string
           helpful_count: string
@@ -156,6 +158,7 @@ export type Database = {
           user_id?: number | null
         }
         Update: {
+          asin?: string
           content?: string
           date?: string
           helpful_count?: string

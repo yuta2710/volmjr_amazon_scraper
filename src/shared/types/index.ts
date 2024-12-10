@@ -161,6 +161,7 @@ export type CommentItem = {
   content: string;
   date: string;
   productId?: number;
+  asin?: string;
   helpfulCount: string;
   rating: string;
   isVerifiedPurchase: boolean;

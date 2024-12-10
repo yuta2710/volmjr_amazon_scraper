@@ -21,21 +21,11 @@ export const renderSuccessComponent = async(res: Response, data: any): Promise<v
     res.status(200).json({
       success: true,
       message: "Scraped data successfully",
-      scraper: {
-        product: {
-          data: data.product.title,
-        },
-        comments: {
-          data: {
-            numberOfComments: data.comments.length,
-          }
-        },
-        category: {
-          data: data.product.category && await repo.getChildrenOfCurrentCategory(data.product.category),
-        },
-        competitors: {
-          data: data.competitors
-        }
+      data: {
+        product: data.product,
+        comments: data.comments,
+        category: await repo.getChildrenOfCurrentCategory(data.product.category),
+        competitors: data.competitors
       },
     });
     return;

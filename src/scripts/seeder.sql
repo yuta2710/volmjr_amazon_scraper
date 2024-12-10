@@ -191,6 +191,7 @@ CREATE TABLE comments (
     user_id INTEGER REFERENCES user_profiles(id) ON DELETE CASCADE,
     -- Helpful count, rating, verified purchase, location, and URL fields
     helpful_count TEXT NOT NULL,
+    asin TEXT NOT NULL,
     rating TEXT NOT NULL,
     is_verified_purchase BOOLEAN NOT NULL,
     location TEXT NOT NULL,
